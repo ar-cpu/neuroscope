@@ -1,0 +1,132 @@
+NEUROSCOPE v5.0 — Scientific Discovery Report
+Generated: 26-Apr-2026 01:00:21
+Dataset:   Kang2018
+Condition: PBMC_IFNbeta
+Reference: Reference  (empty = one-sample mode)
+FDR cutoff: 0.05
+============================================================
+
+1. COMMUNICATION NETWORK OVERVIEW
+=================================
+Total L-R interactions (channel capacity > 0):  51
+Unique ligands:                                  9
+Unique receptors:                                5
+Mean channel capacity:                           0.8395 bits
+Median channel capacity:                         1.0000 bits
+High-capacity channels (>0.1 bits):              48 (94.1%)
+High-capacity channels (>0.5 bits):              45 (88.2%)
+
+2. DIFFERENTIAL CHANNEL ANALYSIS
+================================
+Total L-R pairs tested:                          9
+Significant by strength (Wilcoxon, FDR<0.05):   5
+Significant by capacity (KSG MI, FDR<0.05):     5  [NOVEL TEST]
+Capacity-only enriched (missed by strength):     0  [KEY FINDING]
+
+Interpretation: Capacity-only enriched channels show elevated
+information transmission without proportional expression increase.
+These would be INVISIBLE to CellChat/NicheNet/CellPhoneDB.
+
+Top 10 Channels by Channel Capacity
+-----------------------------------
+Ligand               Receptor             Capacity          95%CI  FDR_cap  FDR_str              Pathway
+-------------------------------------------------------------------------------------------------------------------
+CXCL10               CXCR3                  0.9847  [0.076,1.000]   0.0044   0.0044            Chemokine
+CXCL11               CXCR3                  0.9640  [0.043,1.000]   0.0005   0.0005            Chemokine
+IL1RN                IL1R2                  0.9127  [0.018,1.000]   0.0281   0.0281    Cytokine/JAK-STAT
+CLU                  TYROBP                 0.7548  [0.027,0.965]   0.0117   0.0117                Other
+CD47                 TYROBP                 0.6540  [0.000,1.000]   0.0281   0.0281                Other
+PPIA                 BSG                    1.0000  [0.000,1.000]   1.0000   1.0000                Other
+PF4                  CXCR3                  0.7429  [0.000,1.000]   1.0000   1.0000            Chemokine
+IL1B                 IL1R2                  0.4135  [0.000,1.000]   1.0000   1.0000    Cytokine/JAK-STAT
+LCK                  CD8A                   0.0670  [0.000,0.532]   1.0000   1.0000                Other
+NOTE: 9/9 top channels have 95% CI width >0.15 bits — expected at n=16
+
+Channel Type Distribution
+-------------------------
+  HighCapacity_Broadcast          2 (22.2%)
+  HighCapacity_Selective          2 (22.2%)
+  LowCapacity_Broadcast           1 (11.1%)
+  LowCapacity_Selective           4 (44.4%)
+
+Pathway Annotation (top 5)
+--------------------------
+  Other                      4 channels
+  Chemokine                  3 channels
+  Cytokine/JAK-STAT          2 channels
+
+3. CAUSAL INTERACTION VALIDATION (IV/2SLS)
+==========================================
+Causal validation data unavailable or not run.
+
+4. LATENT COMMUNICATION PROGRAMS (NMF)
+======================================
+NMF rank selected:  7 programs
+
+Top L-R pairs per program:
+  Program 1: CXCL11_CXCR3, CXCL10_CXCR3, CD47_TYROBP
+  Program 2: IL1RN_IL1R2, IL1B_IL1R2, CLU_TYROBP
+  Program 3: CD47_TYROBP, CLU_TYROBP, PF4_CXCR3
+  Program 4: CXCL10_CXCR3, CXCL11_CXCR3, CLU_TYROBP
+  Program 5: PPIA_BSG, CLU_TYROBP, CD47_TYROBP
+  Program 6: CXCL10_CXCR3, CXCL11_CXCR3, CLU_TYROBP
+  Program 7: PF4_CXCR3, CLU_TYROBP, CXCL11_CXCR3
+
+Interpretation: NMF decomposes the [cluster-pair × L-R] communication
+tensor into co-regulated interaction modules. Each program represents
+a coordinated signaling circuit operating across multiple cell types.
+
+5. SPECTRAL COMMUNICATION COMMUNITIES
+=====================================
+Communities detected:  2
+Spectral gap:          0.7328  (larger = more modular)
+
+Interpretation: Spectral decomposition of the communication Laplacian
+reveals functional modules — groups of cell types that communicate
+more within the group than across groups.
+
+6. COMMUNICATION IDENTITY vs. TRANSCRIPTOMIC IDENTITY
+=====================================================
+Communication profile data unavailable.
+
+Communication identity analysis not available (requires cell_comm_profiles).
+
+7. DOWNSTREAM TRANSCRIPTIONAL RESPONSE
+======================================
+Receptors profiled:             5
+With downstream response genes: 1
+Using receptor fallback:        4
+
+Interpretation: For receptors with downstream response genes, channel
+capacity is computed on the PC1 of the response gene matrix rather
+than receptor expression. This measures actual transcriptional change
+in receiver cells, not just receptor abundance.
+
+8. METHODS NOTE (for paper writing)
+===================================
+Channel capacity estimation: KSG k-NN mutual information estimator
+  (Kraskov, Stoegbauer & Grassberger 2004, Phys Rev E 69:066138)
+  I(X;Y) = psi(k) + psi(n) - <psi(nx+1) + psi(ny+1)>
+  Capacity = I(ligand ; response) / H(ligand)  [0..1]
+  Permutation test: 199 shuffles of Y, p = fraction(null >= observed)
+
+Bootstrap confidence intervals:
+  500 resamples of the n paired donor observations with replacement.
+  95% CI = [2.5th, 97.5th] percentile of bootstrap mi_norm distribution.
+  Adaptive k used consistently across all bootstrap resamples.
+  Wide CIs at n=16 (~0.10-0.20 bits) reflect irreducible small-sample
+  variance; relative ranking between channels remains valid.
+
+Differential testing: two-sample Wilcoxon rank-sum on per-cluster-pair
+  strengths (strength test) and capacities (capacity test). BH-FDR.
+
+Causal validation: instrumental variable / 2SLS regression.
+  Instrument: donor_id (natural experiment, analogous to MR in GWAS).
+  Weak instrument filter: first-stage F > 10.
+
+NMF: non-negative matrix factorization of the [cluster-pair × L-R]
+  communication tensor. Rank selected by elbow (<10% improvement).
+
+Normalization: library-size median-ratio (scran-style), log1p.
+HVG selection: degree-2 polynomial regression log(var)~log(mean);
+  top 3000 genes by residual variance.

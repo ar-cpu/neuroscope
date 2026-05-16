@@ -1,0 +1,63 @@
+CellChat vs NEUROSCOPE Comparison — Kang et al. 2018 PBMC (GSE96583)
+======================================================================
+
+Dataset: 24594 cells, 16 donors, 8 cell types
+L-R pairs tested: 1674
+CellChat permutations: 1000 (Jin et al. 2021 Nat Commun)
+NEUROSCOPE: KSG MI, n=16 pseudobulk samples, 500 bootstrap resamples
+
+2x2 CONTINGENCY TABLE:
+                         CellChat sig   CellChat not sig
+  NEUROSCOPE sig (cap):             0              5
+  NEUROSCOPE ns:                    4              0
+
+Fisher exact test: OR = 0.000,  p = 0.0079
+
+RESULTS:
+  Both methods:          0
+  Capacity-only (NOVEL): 5
+  Strength-only:         4
+  Neither:               0
+
+MECHANISTIC EXPLANATION — CellChat ZERO-FLOOR:
+  4/5 capacity-only pairs have CellChat trimean = 0.0000
+  for ALL cluster combinations tested.
+
+  This is a STRUCTURAL property of the trimean formula:
+    trimean(x) = 0.25*Q1 + 0.5*Q2 + 0.25*Q3  (Jin et al. 2021 eq. 1)
+    => trimean = 0 whenever Q1 = Q2 = 0
+    => Q1 = Q2 = 0 whenever fewer than 50% of cells express the gene
+    => gene sparsity > 50% causes a hard zero regardless of true signal
+
+  NEUROSCOPE computes per-donor cluster means (one value per donor),
+  then estimates KSG MI on the 16 pseudobulk vectors.
+  Inter-donor variation is retained even at 15% per-cell sparsity.
+
+TOP CAPACITY-ONLY PAIRS:
+  Ligand       Receptor       Capacity   95%CI_lo   95%CI_hi  ZeroFloor
+  ----------------------------------------------------------------------
+  CXCL10       CXCR3            0.9847      0.076      1.000        YES
+  CXCL11       CXCR3            0.9640      0.043      1.000        YES
+  IL1RN        IL1R2            0.9127      0.018      1.000        YES
+  CLU          TYROBP           0.7548      0.027      0.965        YES
+  CD47         TYROBP           0.6540      0.000      1.000         no
+
+Saved: results/kang2018/comparison_cellchat_vs_neuroscope.csv
+Saved: results/kang2018/cellchat_results_full.csv
+
+======================================================================
+CELLPHONEDB COMPARISON
+======================================================================
+Method: mean(L in A) * mean(R in B), min 10% cells, 1000 permutations
+Reference: Efremova et al. 2020 Nat Protoc
+
+  Both methods:          3
+  Capacity-only (NOVEL): 2  (missed by CellPhoneDB)
+  Strength-only:         23
+
+NOTE: CellPhoneDB uses mean (not trimean), so its zero-floor is at
+mean=0 (requires ALL cells to be silent — very rare). CellPhoneDB
+still misses some capacity-only pairs, but for different reasons:
+the permutation test loses power when per-cell variance is high.
+
+Saved: results/kang2018/cellphonedb_results_full.csv

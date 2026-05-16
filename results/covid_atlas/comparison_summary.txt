@@ -1,0 +1,67 @@
+CellChat vs NEUROSCOPE Comparison — Stephenson et al. 2021 COVID Blood Atlas
+======================================================================
+
+Dataset: 24284 cells, 124 donors, 7 cell types
+L-R pairs tested: 1753
+CellChat permutations: 1000 (Jin et al. 2021 Nat Commun)
+NEUROSCOPE: KSG MI, n=124 pseudobulk samples, BCa bootstrap CIs
+
+2x2 CONTINGENCY TABLE:
+                         CellChat sig   CellChat not sig
+  NEUROSCOPE sig (cap):            29             20
+  NEUROSCOPE ns:                   24              0
+
+Fisher exact test: OR = 0.060,  p = 0.0008
+
+  Both methods:          29
+  Capacity-only (NOVEL): 20
+  Strength-only:         24
+  Neither:               0
+
+MECHANISTIC EXPLANATION — CellChat ZERO-FLOOR:
+  18/20 capacity-only pairs have CellChat trimean = 0.0000
+  for ALL cluster combinations tested.
+
+  Structural property of trimean (Jin et al. 2021 eq. 1):
+    trimean(x) = 0.25*Q1 + 0.5*Q2 + 0.25*Q3
+    => trimean = 0 whenever Q1 = Q2 = 0 (i.e., >50% sparsity)
+
+TOP CAPACITY-ONLY PAIRS:
+  Ligand       Receptor       Capacity   95%CI_lo   95%CI_hi  ZeroFloor
+  ----------------------------------------------------------------------
+  PTGES3       PTGER4           0.6921     0.0000     1.0000        YES
+  B2M          IL6ST            0.4615     0.0000     1.0000        YES
+  CD52         SIGLEC10         0.3720     0.0000     1.0000        YES
+  CCL5         CCR5             0.3597     0.0000     0.9229        YES
+  APP          SORL1            0.3373     0.0000     0.8671        YES
+  SEMA4D       CD72             0.3319     0.0053     0.8989        YES
+  APP          TYROBP           0.2833     0.0000     0.8793         no
+  LIPA         RORA             0.2655     0.0000     1.0000        YES
+  SEMA4D       PTPRC            0.2519     0.0066     0.9019        YES
+  LTA          TNFRSF1B         0.1922     0.0053     0.6751        YES
+  TGFB1        TGFBR2           0.1733     0.0102     0.7937        YES
+  LTA          TNFRSF1A         0.1656     0.0163     0.6471        YES
+  DPEP2        CYSLTR1          0.1643     0.0008     0.6511        YES
+  CCL5         CCR1             0.1405     0.0049     0.8280        YES
+  TGFB1        TGFBR3           0.1349     0.0202     0.6960        YES
+  LPAR2        ADGRE5           0.1091     0.0267     0.6457        YES
+  CLU          TYROBP           0.1017     0.0273     0.4121         no
+  LTA          TNFRSF14         0.0893     0.0000     0.4861        YES
+  TNFSF14      TNFRSF14         0.0769     0.0048     0.4382        YES
+  IFNG         IFNGR1           0.0654     0.0000     0.3993        YES
+
+Saved: results/covid_atlas/comparison_cellchat_vs_neuroscope.csv
+Saved: results/covid_atlas/cellchat_results_full.csv
+
+======================================================================
+CELLPHONEDB COMPARISON
+======================================================================
+Method: mean(L in A) * mean(R in B), min 10% cells, 1000 permutations
+Reference: Efremova et al. 2020 Nat Protoc
+
+  Both methods:          44
+  Capacity-only (NOVEL): 5  (missed by CellPhoneDB)
+  Strength-only:         68
+
+
+Saved: results/covid_atlas/cellphonedb_results_full.csv

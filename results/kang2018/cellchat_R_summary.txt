@@ -1,0 +1,8 @@
+Real R CellChat vs NEUROSCOPE — Kang 2018 PBMC
+CellChat version: 2.2.0.9001
+CellChat significant: 41
+NEUROSCOPE significant (FDR<0.05): 5
+Both methods: 0
+Capacity-only (NOVEL): 5
+Strength-only: 6
+Fisher exact OR: 0  p=0.0152

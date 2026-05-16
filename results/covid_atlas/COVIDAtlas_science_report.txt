@@ -1,0 +1,140 @@
+NEUROSCOPE v5.0 — Scientific Discovery Report
+Generated: 26-Apr-2026 19:13:16
+Dataset:   COVIDAtlas
+Condition: PBMC_COVID19
+Reference: Reference  (empty = one-sample mode)
+FDR cutoff: 0.05
+============================================================
+
+1. COMMUNICATION NETWORK OVERVIEW
+=================================
+Total L-R interactions (channel capacity > 0):  687
+Unique ligands:                                  87
+Unique receptors:                                86
+Mean channel capacity:                           0.2985 bits
+Median channel capacity:                         0.1831 bits
+High-capacity channels (>0.1 bits):              486 (70.7%)
+High-capacity channels (>0.5 bits):              145 (21.1%)
+
+2. DIFFERENTIAL CHANNEL ANALYSIS
+================================
+Total L-R pairs tested:                          127
+Significant by strength (Wilcoxon, FDR<0.05):   49
+Significant by capacity (KSG MI, FDR<0.05):     49  [NOVEL TEST]
+Capacity-only enriched (missed by strength):     0  [KEY FINDING]
+
+Interpretation: Capacity-only enriched channels show elevated
+information transmission without proportional expression increase.
+These would be INVISIBLE to CellChat/NicheNet/CellPhoneDB.
+
+Top 10 Channels by Channel Capacity
+-----------------------------------
+Ligand               Receptor             Capacity          95%CI  FDR_cap  FDR_str              Pathway
+-------------------------------------------------------------------------------------------------------------------
+CD99                 PILRA                  0.7468  [0.000,1.000]   0.0673   0.0673    Cytokine/JAK-STAT
+ALOX5                CYSLTR1                0.7217  [0.000,1.000]   0.0405   0.0405                Other
+PTGES3               PTGER4                 0.6921  [0.000,1.000]   0.0134   0.0134                Other
+CD47                 SIRPB1                 0.6064  [0.000,1.000]   0.0673   0.0673                Other
+CD55                 ADGRE5                 0.5496  [0.000,1.000]   0.0019   0.0019                Other
+ITGB1                ADGRE5                 0.5262  [0.000,1.000]   0.0013   0.0013                Other
+PPIA                 BSG                    0.5233  [0.000,1.000]   0.0019   0.0019                Other
+HLA-E                VSIR                   0.5103  [0.000,1.000]   0.0089   0.0089                Other
+BST2                 LILRA4                 0.4847  [0.000,1.000]   0.0673   0.0673    Cytokine/JAK-STAT
+CD320                JAML                   0.4386  [0.000,0.793]   0.0034   0.0034        Cell adhesion
+NOTE: 10/10 top channels have 95% CI width >0.15 bits — expected at n=124
+
+Channel Type Distribution
+-------------------------
+  HighCapacity_Broadcast          34 (26.8%)
+  HighCapacity_Selective          29 (22.8%)
+  LowCapacity_Broadcast           25 (19.7%)
+  LowCapacity_Selective           39 (30.7%)
+
+Pathway Annotation (top 5)
+--------------------------
+  Other                      84 channels
+  Cytokine/JAK-STAT          26 channels
+  Chemokine                  7 channels
+  Semaphorin                 4 channels
+  Cell adhesion              2 channels
+
+3. CAUSAL INTERACTION VALIDATION (IV/2SLS)
+==========================================
+Instrument type:        donor
+Interactions tested:    127
+Causally validated:     1 (0.8%)
+
+Interpretation: Causal validation uses donor_id as a natural
+instrumental variable (analogous to Mendelian Randomization).
+A causally validated interaction means: natural inter-donor variation
+in ligand level predicts receptor-response variation in receiver cells,
+independently of shared confounders (batch, cell state, etc.).
+
+4. LATENT COMMUNICATION PROGRAMS (NMF)
+======================================
+NMF rank selected:  3 programs
+
+Top L-R pairs per program:
+  Program 1: ICAM3_ITGB2, ANXA1_FPR1, APP_TYROBP
+  Program 2: PPIA_BSG, PTGES3_PTGER4, HLA-E_VSIR
+  Program 3: CD55_ADGRE5, ITGB1_ADGRE5, CD58_CD2
+
+Interpretation: NMF decomposes the [cluster-pair × L-R] communication
+tensor into co-regulated interaction modules. Each program represents
+a coordinated signaling circuit operating across multiple cell types.
+
+5. SPECTRAL COMMUNICATION COMMUNITIES
+=====================================
+Communities detected:  2
+Spectral gap:          0.8115  (larger = more modular)
+
+Interpretation: Spectral decomposition of the communication Laplacian
+reveals functional modules — groups of cell types that communicate
+more within the group than across groups.
+
+6. COMMUNICATION IDENTITY vs. TRANSCRIPTOMIC IDENTITY
+=====================================================
+Communication states (k-means on L-R sending/receiving PCs):  14
+Transcriptomic clusters:                                      7
+
+Communication identity analysis not available (requires cell_comm_profiles).
+
+7. DOWNSTREAM TRANSCRIPTIONAL RESPONSE
+======================================
+Receptors profiled:             86
+With downstream response genes: 17
+Using receptor fallback:        69
+
+Interpretation: For receptors with downstream response genes, channel
+capacity is computed on the PC1 of the response gene matrix rather
+than receptor expression. This measures actual transcriptional change
+in receiver cells, not just receptor abundance.
+
+8. METHODS NOTE (for paper writing)
+===================================
+Channel capacity estimation: KSG k-NN mutual information estimator
+  (Kraskov, Stoegbauer & Grassberger 2004, Phys Rev E 69:066138)
+  I(X;Y) = psi(k) + psi(n) - <psi(nx+1) + psi(ny+1)>
+  Capacity = I(ligand ; response) / H(ligand)  [0..1]
+  Permutation test: 199 shuffles of Y, p = fraction(null >= observed)
+
+Bootstrap confidence intervals:
+  500 resamples of the n paired donor observations with replacement.
+  95% CI = [2.5th, 97.5th] percentile of bootstrap mi_norm distribution.
+  Adaptive k used consistently across all bootstrap resamples.
+  Wide CIs at n=16 (~0.10-0.20 bits) reflect irreducible small-sample
+  variance; relative ranking between channels remains valid.
+
+Differential testing: two-sample Wilcoxon rank-sum on per-cluster-pair
+  strengths (strength test) and capacities (capacity test). BH-FDR.
+
+Causal validation: instrumental variable / 2SLS regression.
+  Instrument: donor_id (natural experiment, analogous to MR in GWAS).
+  Weak instrument filter: first-stage F > 10.
+
+NMF: non-negative matrix factorization of the [cluster-pair × L-R]
+  communication tensor. Rank selected by elbow (<10% improvement).
+
+Normalization: library-size median-ratio (scran-style), log1p.
+HVG selection: degree-2 polynomial regression log(var)~log(mean);
+  top 3000 genes by residual variance.
