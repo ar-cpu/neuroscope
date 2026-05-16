@@ -141,8 +141,15 @@ dist_pos = sqrt(sum((X_test - centroid_pos).^2, 2));
 dist_neg = sqrt(sum((X_test - centroid_neg).^2, 2));
 score    = dist_neg - dist_pos;  % larger → closer to positive centroid
 
-[~, ~, ~, perf.auc] = perfcurve(y_test, score, 1);
-perf.method = 'nearest_centroid';
+% Manual trapezoidal AUROC — no toolbox required
+[~, ord]     = sort(score, 'descend');
+labs_sorted  = y_test(ord);
+n_pos        = max(sum(y_test == 1), 1);
+n_neg        = max(sum(y_test == 0), 1);
+tp           = cumsum(labs_sorted == 1) / n_pos;
+fp           = cumsum(labs_sorted == 0) / n_neg;
+perf.auc     = trapz([0; fp], [0; tp]);
+perf.method  = 'nearest_centroid';
 
 classifier = struct();
 classifier.centroid_pos = centroid_pos;

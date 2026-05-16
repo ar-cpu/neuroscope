@@ -135,21 +135,19 @@ out_dir = 'results';
 if ~exist(out_dir, 'dir'), mkdir(out_dir); end
 
 % Pathway predictor weights
-header_weights = ['Pathway', arrayfun(@(k) sprintf('Latent%d',k), ...
-    1:n_latent, 'UniformOutput', false)];
-weights_mat = cell2mat(cellfun(@(r) cell2mat(r(2:end)), weight_rows, ...
-    'UniformOutput', false));
-weight_tbl  = array2table(weights_mat, 'VariableNames', header_weights(2:end));
-weight_tbl.Pathway = pathways;
-weight_tbl  = weight_tbl(:, ['Pathway', header_weights(2:end)]);
+latent_col_names = arrayfun(@(k) sprintf('Latent%d',k), 1:n_latent, 'UniformOutput', false);
+weights_mat = cell2mat(cellfun(@(r) cell2mat(r(2:end)), weight_rows, 'UniformOutput', false));
+weight_tbl  = [table(pathways, 'VariableNames', {'Pathway'}), ...
+               array2table(weights_mat, 'VariableNames', latent_col_names)];
 try
     writetable(weight_tbl, fullfile(out_dir, 'pathway_predictor_weights.csv'));
 catch
 end
 
-% Per-cell pathway activity scores
+% Per-cell pathway activity scores — sanitise column names for valid MATLAB identifiers
+safe_pathways = regexprep(pathways, '[^a-zA-Z0-9_]', '_');
 score_mat   = condition_latent * weights_mat';
-score_tbl   = array2table(score_mat, 'VariableNames', pathways);
+score_tbl   = array2table(score_mat, 'VariableNames', safe_pathways);
 if ~isempty(cell_metadata) && any(strcmp(cell_metadata.Properties.VariableNames, 'Cluster'))
     score_tbl.Cluster = cell_metadata.Cluster;
 end

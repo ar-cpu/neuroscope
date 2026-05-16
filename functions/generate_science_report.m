@@ -37,7 +37,7 @@ hdr   = @(s) fprintf(fid, '\n%s\n%s\n', s, repmat('=', 1, length(s)));
 sub   = @(s) fprintf(fid, '\n%s\n%s\n', s, repmat('-', 1, length(s)));
 
 %% Header
-fprintf(fid, 'NEUROSCOPE v5.0 — Scientific Discovery Report\n');
+fprintf(fid, 'NEUROSCOPE v5.2 — Scientific Discovery Report\n');
 fprintf(fid, 'Generated: %s\n', datestr(now));
 fprintf(fid, 'Dataset:   %s\n', config.dataset_name);
 fprintf(fid, 'Condition: %s\n', config.condition_name);

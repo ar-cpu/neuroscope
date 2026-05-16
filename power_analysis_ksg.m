@@ -232,7 +232,7 @@ save(fullfile(outdir, 'power_analysis_results.mat'), '-struct', 'os');
 
 % Write plain text summary
 fid = fopen(fullfile(outdir, 'power_analysis_summary.txt'), 'w');
-fprintf(fid, 'KSG MI Power Analysis — NEUROSCOPE v5.0\n');
+fprintf(fid, 'KSG MI Power Analysis — NEUROSCOPE v5.2\n');
 fprintf(fid, 'N_TRIALS=%d, N_BOOT=%d, model=bivariate_Gaussian_copula\n\n', N_TRIALS, N_BOOT);
 fprintf(fid, 'n values tested: %s\n', mat2str(N_VALS));
 fprintf(fid, 'rho values: %s\n', mat2str(RHO_VALS));

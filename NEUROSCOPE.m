@@ -43,7 +43,7 @@ function NEUROSCOPE(config)
 
 t_pipeline = tic;
 
-fprintf('NEUROSCOPE v5.0\n');
+fprintf('NEUROSCOPE v5.2\n');
 fprintf('Information-Theoretic Cell-Cell Communication Analysis\n');
 fprintf('Start: %s\n\n', datestr(now));
 
@@ -754,7 +754,7 @@ end
 t_total = toc(t_pipeline);
 
 fprintf('=============================================================\n');
-fprintf('NEUROSCOPE v5.0 complete in %.1f min\n\n', t_total/60);
+fprintf('NEUROSCOPE v5.2 complete in %.1f min\n\n', t_total/60);
 fprintf('--- Information-Theoretic Communication Summary ---\n\n');
 
 % Network statistics

@@ -1,4 +1,4 @@
-NEUROSCOPE v5.0 — Scientific Discovery Report
+NEUROSCOPE v5.2 — Scientific Discovery Report
 Generated: 26-Apr-2026 19:13:16
 Dataset:   COVIDAtlas
 Condition: PBMC_COVID19
