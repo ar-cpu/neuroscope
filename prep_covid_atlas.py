@@ -6,18 +6,7 @@ Dataset: COMBAT consortium, 836,148 cells, 124 donors
 Collection: 8f126edf-5405-4731-8374-b5ce11f53e82
 File URL:   https://datasets.cellxgene.cziscience.com/687c09ff-731a-4e3d-ac07-4c29c33a6338.h5ad
 File size:  5.6 GB  — we download ~50-200 MB via range reads
-
-Why this dataset for NEUROSCOPE:
-  - 124 donors >> n=16 (Kang 2018) → KSG MI at much higher confidence
-  - COVID-19 + influenza + normal conditions
-  - PBMC cell types: B, CD4T, CD8T, NK, Mono, DC
-  - IV/2SLS valid: donor_id not confounded by systematic condition assignment
-    (unlike Kang ctrl vs stim where EVERY donor appears in both conditions)
-
-Output:
-  converted/covid_atlas/covid_expression_sparse.mat  (field 'X')
-  converted/covid_atlas/covid_cell_metadata.csv
-  converted/covid_atlas/covid_gene_names.csv
+Outputs:    converted/covid_atlas/covid_expression_sparse.mat, covid_cell_metadata.csv, covid_gene_names.csv
 """
 
 import numpy as np
@@ -29,7 +18,6 @@ import fsspec
 import os, sys, time
 from collections import defaultdict
 
-# ── Configuration ─────────────────────────────────────────────────────────────
 URL = "https://datasets.cellxgene.cziscience.com/687c09ff-731a-4e3d-ac07-4c29c33a6338.h5ad"
 OUT_DIR  = "converted/covid_atlas"
 GENE_TBL = "converted/gene_table.csv"
@@ -48,7 +36,6 @@ print("=== COVID-19 Blood Atlas Prep (HTTP range streaming) ===")
 print(f"URL: {URL}\n")
 t0 = time.time()
 
-# ── Helper functions ──────────────────────────────────────────────────────────
 def decode(arr):
     """Decode bytes/strings from HDF5."""
     if hasattr(arr, 'dtype') and arr.dtype.kind in ('S', 'O'):
@@ -65,13 +52,11 @@ def load_categorical(group, key):
     else:
         return decode(d[:])
 
-# ── Open remote HDF5 ──────────────────────────────────────────────────────────
 print("Opening remote HDF5 via HTTP range reads...")
 of = fsspec.open(URL, 'rb')
 f  = h5py.File(of.open(), 'r')
 print(f"  Keys: {list(f.keys())}")
 
-# ── Load obs metadata ─────────────────────────────────────────────────────────
 print("\nLoading obs metadata...")
 obs     = f['obs']
 n_cells = int(f['X']['indptr'].shape[0]) - 1
@@ -86,7 +71,6 @@ print(f"  Unique donors: {np.unique(donor_ids).shape[0]}")
 print(f"  Cell types (sample): {np.unique(cell_types)[:8]}")
 print(f"  Disease: {dict(zip(*np.unique(diseases, return_counts=True)))}")
 
-# ── Load gene names ───────────────────────────────────────────────────────────
 print("\nLoading gene names...")
 gene_names = load_categorical(f['var'], 'feature_name')
 gene_names_upper = np.array([g.upper() for g in gene_names])
@@ -95,7 +79,6 @@ print(f"  Total genes: {n_genes}")
 
 gene_to_idx = {g: i for i, g in enumerate(gene_names_upper)}
 
-# ── Build L-R gene set ────────────────────────────────────────────────────────
 print("\nBuilding L-R gene set...")
 gt        = pd.read_csv(GENE_TBL)
 protein   = pd.read_csv(PROT_CSV)
@@ -142,7 +125,6 @@ lr_genes_in_matrix = lr_gene_set & matrix_gene_set
 lr_gene_idx = np.array(sorted([gene_to_idx[g] for g in lr_genes_in_matrix]))
 print(f"  L-R genes in matrix: {len(lr_gene_idx)}")
 
-# ── Assign broad cell type clusters ──────────────────────────────────────────
 def broad_cluster(ct):
     ct_l = ct.lower()
     if 'b cell' in ct_l:                                       return 'B'
@@ -163,13 +145,11 @@ b_labels  = broad_labels[pbmc_mask]
 b_donors  = donor_ids[pbmc_mask]
 b_disease = diseases[pbmc_mask]
 
-# Cluster distribution
 from collections import Counter
 for cl, n in Counter(b_labels).most_common():
     n_don = len(np.unique(b_donors[b_labels == cl]))
     print(f"  {cl:8s}: {n:6d} cells, {n_don:4d} donors")
 
-# ── Filter to clusters with enough donors ─────────────────────────────────────
 valid_clusters = []
 for cl in np.unique(b_labels):
     n_don = len(np.unique(b_donors[b_labels == cl]))
@@ -185,7 +165,6 @@ b_labels  = b_labels[valid_mask]
 b_donors  = b_donors[valid_mask]
 b_disease = b_disease[valid_mask]
 
-# ── Subsample (cap cells per cluster-donor) ───────────────────────────────────
 print(f"\nSubsampling to <= {MAX_CELLS_PER_CLUSTER_DONOR} cells per cluster-donor...")
 rng  = np.random.default_rng(42)
 keep = []
@@ -205,7 +184,6 @@ sub_dis  = b_disease[keep]
 
 print(f"  Subsampled: {len(sub_full)} cells from {len(np.unique(sub_don))} donors")
 
-# ── Efficient sparse matrix loading via indptr ────────────────────────────────
 print("\nLoading indptr (once, ~3.3 MB)...")
 indptr = f['X']['indptr'][:]     # shape (n_cells+1,)
 print(f"  Loaded indptr shape: {indptr.shape}")
@@ -214,11 +192,8 @@ def load_rows_cols(X_node, row_idx_sorted, col_idx_sorted, batch_gap=300, verbos
     """
     Load a submatrix of a CSR HDF5 sparse matrix via BATCHED range reads.
 
-    Key optimization: instead of 1 HTTP request per row (O(n_rows) requests),
-    group consecutive rows into batches and read each batch in 2 HTTP requests
-    (one for data, one for indices). Rows with a gap < batch_gap are merged.
-    Typical result: ~50-200 batches instead of 24,000+ individual requests.
-
+    Batches consecutive rows to minimize HTTP requests — rows within batch_gap
+    of each other share a single data+indices fetch instead of one per row.
     row_idx_sorted : sorted global row indices (must be sorted ascending)
     col_idx_sorted : sorted global col indices to keep in output
     Returns dense float32 array of shape (len(row_idx), len(col_idx))
@@ -228,10 +203,8 @@ def load_rows_cols(X_node, row_idx_sorted, col_idx_sorted, batch_gap=300, verbos
     n_cols  = len(col_idx_sorted)
     result  = np.zeros((n_rows, n_cols), dtype=np.float32)
 
-    # Map global row → result row index
     row_to_ri = {int(r): ri for ri, r in enumerate(row_idx_sorted)}
 
-    # Build batches: merge consecutive rows if gap < batch_gap
     batches = []  # list of (first_row, last_row, [row_indices])
     cur_batch_rows = [row_idx_sorted[0]]
     for i in range(1, n_rows):
@@ -254,7 +227,6 @@ def load_rows_cols(X_node, row_idx_sorted, col_idx_sorted, batch_gap=300, verbos
         d_end   = int(indptr[r_last + 1])
         if d_start >= d_end:
             continue
-        # ONE HTTP request for this entire batch's data + indices
         batch_data    = np.array(X_node['data'][d_start:d_end],    dtype=np.float32)
         batch_indices = np.array(X_node['indices'][d_start:d_end], dtype=np.int32)
 
@@ -276,14 +248,11 @@ def load_rows_cols(X_node, row_idx_sorted, col_idx_sorted, batch_gap=300, verbos
 
     return result
 
-# ── HVG estimation from a small probe ────────────────────────────────────────
 print(f"\nEstimating HVGs from {PROBE_N} probe cells (batched loading)...")
 probe_global = sub_full[rng.choice(len(sub_full), min(PROBE_N, len(sub_full)), replace=False)]
 probe_global = np.array(sorted(probe_global))
 
-# For HVG estimation, use every 7th gene (5186 genes) to avoid slow all-gene load
-# This gives a representative sample for variance estimation
-hvg_probe_idx = np.arange(0, n_genes, 7)   # ~5186 genes, evenly spaced
+hvg_probe_idx = np.arange(0, n_genes, 7)   # every 7th gene (~5186 genes) for variance estimation
 print(f"  Loading {len(probe_global)} cells x {len(hvg_probe_idx)} probe genes (every 7th)...")
 t_probe = time.time()
 probe_mat = load_rows_cols(f['X'], probe_global, hvg_probe_idx, batch_gap=50, verbose=False)
@@ -305,20 +274,17 @@ final_gene_idx   = np.array(sorted(np.union1d(lr_gene_idx, hvg_idx)))
 final_gene_names = gene_names_upper[final_gene_idx]
 print(f"  Final gene set: {len(final_gene_idx)} ({len(lr_gene_idx)} L-R + {N_HVG} HVG)")
 
-# ── Load final expression matrix ──────────────────────────────────────────────
 print(f"\nLoading final matrix ({len(sub_full)} cells × {len(final_gene_idx)} genes)...")
 t_load = time.time()
 X_raw = load_rows_cols(f['X'], sub_full, final_gene_idx)
 print(f"  Done in {time.time()-t_load:.1f}s  shape={X_raw.shape}")
 print(f"  Sparsity: {1 - np.count_nonzero(X_raw) / X_raw.size:.1%}")
 
-# ── Normalize ─────────────────────────────────────────────────────────────────
 print("\nNormalizing (library-size + log1p)...")
 lib_sizes = X_raw.sum(axis=1, keepdims=True)
 lib_sizes[lib_sizes == 0] = 1
 X_norm = np.log1p(X_raw / lib_sizes * 1e4).astype(np.float32)
 
-# ── Build metadata ────────────────────────────────────────────────────────────
 cluster_names = sorted(np.unique(sub_cl))
 cl_to_id = {c: i for i, c in enumerate(cluster_names)}
 cluster_ids = np.array([cl_to_id[c] for c in sub_cl])
@@ -338,7 +304,6 @@ for cl, n in meta['CellTypeName'].value_counts().items():
     n_d = meta[meta['CellTypeName']==cl]['donor_id'].nunique()
     print(f"    {cl:8s}: {n:5d} cells, {n_d:3d} donors")
 
-# ── Save ──────────────────────────────────────────────────────────────────────
 print(f"\nSaving to {OUT_DIR}/...")
 scipy.io.savemat(f"{OUT_DIR}/covid_expression_sparse.mat",
                  {'X': X_norm}, do_compression=True)

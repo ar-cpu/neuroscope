@@ -1,25 +1,9 @@
 """
 compare_cellchat.py  —  CellChat-equivalent scoring vs NEUROSCOPE channel capacity
                         on Kang et al. 2018 PBMC (GSE96583).
-
-CellChat scoring (Jin et al. 2021 Nature Communications, eq. 1):
-  P_{A->B} = trimean(L in A) * trimean(R in B)
-  where trimean(x) = 0.25*Q1 + 0.5*Q2 + 0.25*Q3  (Hill 1974)
-
-  Structural zero-floor: trimean = 0 whenever Q2 = 0 AND Q1 = 0,
-  i.e., whenever fewer than 50% of cells express the gene at all.
-  This is a deterministic property of the formula, not a threshold
-  chosen by the analyst. See eq. 1 and Methods, Jin et al. 2021.
-
-NEUROSCOPE donor-level MI:
-  Capacity = I(L ; R) / H(L)  via KSG estimator (Kraskov et al. 2004)
-  Computed on [per-cluster mean per donor] vectors, n=16 observations.
-  Captures inter-donor co-variation even when per-cell sparsity is >50%.
-
-OUTPUTS:
-  results/kang2018/cellchat_results_full.csv
-  results/kang2018/comparison_cellchat_vs_neuroscope.csv
-  results/kang2018/comparison_summary.txt
+CellChat scoring (Jin et al. 2021 Nat Commun eq. 1): trimean = 0.25*Q1 + 0.5*Q2 + 0.25*Q3
+Structural zero-floor: trimean = 0 whenever Q1 = Q2 = 0, i.e., >50% of cells are silent.
+Outputs: results/kang2018/cellchat_results_full.csv, comparison_cellchat_vs_neuroscope.csv, comparison_summary.txt
 """
 
 import numpy as np
@@ -38,18 +22,17 @@ PROT_CSV   = "converted/protein_table.csv"
 GENE_TBL   = "converted/gene_table.csv"
 COMP_CSV   = "converted/complex_composition_table.csv"
 NEURO_RES  = "results/kang2018/Kang2018_specific_interactions.csv"
-NEURO_RANK = "results/kang2018/channel_rankings.csv"         # written by NEUROSCOPE v5.1+
-NEURO_RANK2= "results/Kang2018_target_rankings.csv"          # legacy fallback
+NEURO_RANK = "results/kang2018/channel_rankings.csv"
+NEURO_RANK2= "results/Kang2018_target_rankings.csv"
 OUT_DIR    = "results/kang2018"
 
-N_PERM_CC  = 1000   # CellChat permutation test (Jin et al. 2021: 1000)
-MIN_FRAC   = 0.10   # min fraction of cells expressing gene (CellChat default)
+N_PERM_CC  = 1000
+MIN_FRAC   = 0.10
 ALPHA      = 0.05
 
 print("=== CellChat vs NEUROSCOPE Comparison (Kang 2018) ===\n")
 print("Reference: Jin et al. 2021 Nat Commun (CellChat); Kraskov et al. 2004 (KSG MI)\n")
 
-# ── Load data ─────────────────────────────────────────────────────────────────
 print("Loading expression matrix...")
 mat = scipy.io.loadmat(EXPR_PATH)
 X = mat['X']
@@ -65,17 +48,14 @@ print(f"  Metadata: {meta.shape}")
 print(f"  Donors: {meta['donor_id'].nunique()}")
 print(f"  Clusters: {meta['Cluster'].nunique()}")
 
-# Align X rows to metadata
 if X.shape[0] != len(meta):
     print(f"  WARNING: X has {X.shape[0]} rows but metadata has {len(meta)} rows — truncating X")
     X = X[:len(meta), :]
     print(f"  Aligned X to {X.shape}")
 print()
 
-# ── Build gene index ──────────────────────────────────────────────────────────
 gene_to_idx = {g: i for i, g in enumerate(gene_names)}
 
-# ── Build L-R pair list ───────────────────────────────────────────────────────
 print("Building L-R pair list from CellPhoneDB...")
 
 protein    = pd.read_csv(PROT_CSV)
@@ -129,7 +109,6 @@ lr_pairs_filt = [(L, R) for L, R in lr_pairs
 print(f"  In expression matrix: {len(lr_pairs_filt)}")
 print()
 
-# ── Cluster / donor assignments ───────────────────────────────────────────────
 clusters       = meta['Cluster'].values.astype(int)
 donor_ids      = meta['donor_id'].values
 unique_clusters = sorted(np.unique(clusters))
@@ -141,7 +120,6 @@ ct_map = (meta.groupby('Cluster')['CellTypeName'].first().to_dict()
           if 'CellTypeName' in meta.columns
           else {c: str(c) for c in unique_clusters})
 
-# ── CellChat trimean scoring ──────────────────────────────────────────────────
 def trimean(x):
     """Hill's trimean: 0.25*Q1 + 0.5*Q2 + 0.25*Q3  (Jin et al. 2021 eq. 1)"""
     q1, q2, q3 = np.percentile(x, [25, 50, 75])
@@ -158,7 +136,7 @@ print("Precomputing per-cluster gene statistics...")
 t0 = time.time()
 cluster_trimean = {}
 cluster_frac    = {}
-cluster_data    = {}   # store raw data for zero-floor diagnosis
+cluster_data    = {}
 for c in unique_clusters:
     mask            = clusters == c
     Xc              = X[mask, :]
@@ -167,7 +145,6 @@ for c in unique_clusters:
     cluster_frac[c]    = np.mean(Xc > 0, axis=0)
 print(f"  Done in {time.time()-t0:.1f}s")
 
-# ── CellChat permutation test (1000 permutations, Jin et al. 2021) ───────────
 rng     = np.random.default_rng(42)
 results = []
 tested  = 0
@@ -228,7 +205,6 @@ print(f"  Tested {tested} combinations in {time.time()-t0:.1f}s")
 cc_df = pd.DataFrame(results)
 print(f"  CellChat results: {len(cc_df)} combinations")
 
-# BH FDR
 if len(cc_df) > 0:
     pvals = cc_df['CellChat_Pval'].values
     n     = len(pvals)
@@ -246,7 +222,6 @@ if len(cc_df) > 0:
     print(f"  CellChat significant (FDR<{ALPHA}): {len(cc_sig)} combinations, "
           f"{cc_sig[['Ligand','Receptor']].drop_duplicates().shape[0]} unique L-R pairs")
 
-# ── Load NEUROSCOPE results ───────────────────────────────────────────────────
 print("\nLoading NEUROSCOPE results...")
 neuro_df = None
 for path in [NEURO_RANK, NEURO_RANK2, NEURO_RES,
@@ -261,7 +236,6 @@ if neuro_df is None:
     cc_df.to_csv(f"{OUT_DIR}/cellchat_results_full.csv", index=False)
     sys.exit(0)
 
-# Determine significance column
 neuro_sig_col = None
 for col in ['FDRCapacity', 'FDR_cap', 'FDR', 'fdr']:
     if col in neuro_df.columns:
@@ -278,7 +252,6 @@ else:
         neuro_lr_sig = set(zip(neuro_df['Ligand'], neuro_df['Receptor']))
     print(f"  NEUROSCOPE pairs (all): {len(neuro_lr_sig)}")
 
-# CellChat significant L-R pairs
 cc_lr_sig = set()
 if 'CellChat_Significant' in cc_df.columns:
     cc_lr_sig = set(
@@ -289,7 +262,6 @@ if 'CellChat_Significant' in cc_df.columns:
 all_lr = neuro_lr_sig | cc_lr_sig
 print(f"\nTotal unique L-R pairs in either method: {len(all_lr)}")
 
-# ── Zero-floor diagnosis for NEUROSCOPE-only pairs ────────────────────────────
 # For each capacity-only pair, compute max trimean across all cluster pairs.
 # This proves which ones hit the structural zero-floor of CellChat.
 def max_trimean_for_lr(L, R):
@@ -316,7 +288,6 @@ def max_trimean_for_lr(L, R):
                 best_l_tm   = l_tm
     return best_score, best_l_frac, best_r_frac, best_l_tm
 
-# ── Build comparison table ────────────────────────────────────────────────────
 print("\nBuilding comparison table...")
 comparison = []
 for (L, R) in all_lr:
@@ -352,7 +323,6 @@ for (L, R) in all_lr:
     cc_best    = cc_row['CellChat_Score'].max() if len(cc_row) > 0 else np.nan
     cc_best_fdr= cc_row['CellChat_FDR'].min()  if ('CellChat_FDR' in cc_row.columns and len(cc_row)>0) else np.nan
 
-    # Zero-floor diagnosis: compute max trimean product and fraction expressing
     max_tm_score, l_frac, r_frac, l_tm = max_trimean_for_lr(L, R)
     # A pair hits the CellChat zero-floor when max trimean product = 0
     # (one or both genes have trimean=0 in all cluster combinations tested)
@@ -371,12 +341,11 @@ for (L, R) in all_lr:
         'MaxTrimeanProduct':     max_tm_score,
         'In_NEUROSCOPE':         in_neuro,
         'In_CellChat':           in_cc,
-        'CellChat_ZeroFloor':    zero_floor,   # True = structurally undetectable by CellChat
+        'CellChat_ZeroFloor':    zero_floor,
     })
 
 comp_df = pd.DataFrame(comparison).sort_values('Category')
 
-# ── 2x2 contingency + Fisher exact test ──────────────────────────────────────
 n_both     = (comp_df['Category'] == 'Both').sum()
 n_cap_only = (comp_df['Category'] == 'Capacity_Only').sum()
 n_str_only = (comp_df['Category'] == 'Strength_Only').sum()
@@ -406,7 +375,6 @@ print(f"  Strength-only:    {n_str_only:4d}  (CellChat finds, NEUROSCOPE misses)
 print(f"  Neither:          {n_neither:4d}")
 print()
 
-# Zero-floor analysis
 n_zero_floor = comp_df['CellChat_ZeroFloor'].sum()
 print(f"  CellChat zero-floor pairs: {n_zero_floor}/{n_cap_only} capacity-only pairs")
 print(f"  (trimean = 0 in all cluster combinations — structural, not threshold-dependent)")
@@ -427,7 +395,6 @@ if n_cap_only > 0:
         print(f"  {row['Ligand']:10s} -> {row['Receptor']:10s}  "
               f"cap={row['NEUROSCOPE_Capacity']:.3f}{ci_str}{floor_str}")
 
-# ── Save outputs ──────────────────────────────────────────────────────────────
 os.makedirs(OUT_DIR, exist_ok=True)
 comp_df.to_csv(f"{OUT_DIR}/comparison_cellchat_vs_neuroscope.csv", index=False)
 cc_df.to_csv(f"{OUT_DIR}/cellchat_results_full.csv",               index=False)
@@ -486,16 +453,11 @@ print(f"\nSaved: {OUT_DIR}/comparison_cellchat_vs_neuroscope.csv")
 print(f"Saved: {OUT_DIR}/comparison_summary.txt")
 print(f"Saved: {OUT_DIR}/cellchat_results_full.csv")
 
-# ── CellPhoneDB comparison ────────────────────────────────────────────────────
 # CellPhoneDB v3 uses mean expression (not trimean) with a minimum cell
-# percentage filter and permutation test. Unlike CellChat, its zero-floor
-# is at mean=0 (all cells silent), not at Q2=0 (>50% cells silent).
-# So CellPhoneDB should in principle be less affected by sparsity.
-# Reference: Efremova et al. 2020 Nature Protocols.
-#
-# Scoring: score = mean(L in cluster A) * mean(R in cluster B)
-# Filter: both genes must be expressed in >= MIN_FRAC_CPD cells of their cluster
-# Test:   permutation test on cell labels (same as CellChat)
+# percentage filter and permutation test. Its zero-floor is at mean=0
+# (all cells silent), not at Q2=0 (>50% cells silent), so it is less
+# affected by sparsity. Reference: Efremova et al. 2020 Nature Protocols.
+# Score: mean(L in cluster A) * mean(R in cluster B)
 print("\n\n=== CellPhoneDB-style Comparison ===")
 print("Reference: Efremova et al. 2020 Nat Protoc (CellPhoneDB v3)")
 print("Score: mean(L in A) * mean(R in B), minimum 10% cells expressing\n")
@@ -505,12 +467,11 @@ N_PERM_CPD   = 1000
 
 t1 = time.time()
 
-# Precompute per-cluster mean expression and cell fraction
-cluster_mean    = {}
+cluster_mean = {}
 for c in unique_clusters:
     mask         = clusters == c
     Xc           = X[mask, :]
-    cluster_mean[c]  = np.mean(Xc, axis=0)   # mean (not trimean)
+    cluster_mean[c]  = np.mean(Xc, axis=0)
 
 cpd_results = []
 tested_cpd  = 0
@@ -582,7 +543,6 @@ if len(cpd_df) > 0:
 else:
     cpd_sig_lr = set()
 
-# 2x2 for CellPhoneDB
 n_both_cpd     = len(neuro_lr_sig & cpd_sig_lr)
 n_cap_only_cpd = len(neuro_lr_sig - cpd_sig_lr)
 n_str_only_cpd = len(cpd_sig_lr - neuro_lr_sig)
@@ -595,8 +555,8 @@ print(f"  Capacity-only:    {n_cap_only_cpd:4d}  [NOVEL — missed by CellPhoneD
 print(f"  Strength-only:    {n_str_only_cpd:4d}  (CellPhoneDB finds, NEUROSCOPE misses)")
 print()
 
-# Zero-floor analysis for CellPhoneDB: mean=0 requires ALL cells silent
-# (much rarer than trimean=0, which only requires >50% cells silent)
+# mean=0 requires ALL cells to be silent (much rarer than trimean=0,
+# which only requires >50% cells silent)
 cpd_zero_floor = 0
 if n_cap_only_cpd > 0:
     cpd_only_pairs = neuro_lr_sig - cpd_sig_lr
@@ -622,10 +582,8 @@ if n_cap_only_cpd > 0:
     print(f"  CellPhoneDB misses {n_cap_only_cpd - cpd_zero_floor} capacity-only pairs")
     print(f"  even though their mean expression > 0 — purely from the permutation test.")
 
-# Save CellPhoneDB results
 cpd_df.to_csv(f"{OUT_DIR}/cellphonedb_results_full.csv", index=False)
 
-# Append CellPhoneDB section to comparison_summary.txt
 with open(f"{OUT_DIR}/comparison_summary.txt", 'a') as f:
     f.write("\n" + "=" * 70 + "\n")
     f.write("CELLPHONEDB COMPARISON\n")
