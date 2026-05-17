@@ -1,35 +1,19 @@
 % run_covid_atlas.m  —  NEUROSCOPE v5.2 on Stephenson et al. 2021 COVID Blood Atlas
-%
-% Dataset: COMBAT consortium, Nature Medicine 2021
-% 24,284 cells, 124 donors × 3 disease conditions (COVID-19, influenza, normal)
-% 7 cell types: B, CD4T, CD8T, DC, Mono, NK, Plasma
-%
-% Why this is stronger than Kang 2018:
-%   - 124 donors vs 16 pseudobulk samples: KSG MI variance is much lower
-%   - IV/2SLS is VALID here: donor_id is uncorrupted by systematic condition
-%     assignment (unlike Kang where every donor appears in both ctrl AND stim)
-%   - Provides independent replication of capacity-only pairs
-%
+% 24,284 cells, 124 donors x 3 conditions (COVID-19, influenza, normal), 7 cell types.
 % Run: matlab -batch "cd('c:/arjun-project/neuroscope'); run_covid_atlas"
 
 addpath(genpath('functions'));
 
 config = struct();
-
-% Identity
 config.dataset_name    = 'COVIDAtlas';
 config.condition_name  = 'PBMC_COVID19';
 config.reference_name  = '';
-
-% Paths
 config.expr_path           = 'converted/covid_atlas/covid_expression_sparse.mat';
 config.metadata_path       = 'converted/covid_atlas/covid_cell_metadata.csv';
 config.cellphonedb_dir     = 'converted';
 config.reference_expr_path = '';
 config.reference_meta_path = '';
 config.output_dir          = 'results/covid_atlas';
-
-% Run parameters
 config.n_permutations = 200;
 config.fdr_threshold  = 0.05;
 config.run_ml         = false;

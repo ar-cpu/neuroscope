@@ -1,51 +1,19 @@
 function diff_channels = identify_differential_channels(condition_network, reference_network, n_permutations, fdr_threshold)
-% IDENTIFY_DIFFERENTIAL_CHANNELS  Find communication channels that are
-%   significantly enriched, depleted, or rewired between two biological
-%   conditions — without assuming any disease context.
+% IDENTIFY_DIFFERENTIAL_CHANNELS  Find communication channels significantly
+%   enriched, depleted, or rewired between two conditions (tumor vs. normal,
+%   treatment vs. control, etc.). Tissue- and disease-agnostic.
 %
-% This function replaces the GBM-specific interaction detection used in
-% earlier versions. It is fully tissue- and disease-agnostic: it can
-% compare any two communication networks (tumor vs. normal, region A vs.
-% region B, young vs. old, treatment vs. control).
+% Statistical framework: per-cluster-pair strengths are compared with
+%   Wilcoxon rank-sum (two-sample) or signed-rank vs. zero (one-sample).
+%   A separate test on KSG normalised MI distinguishes "more expressed"
+%   from "more informative" — existing tools cannot do this.
 %
-% STATISTICAL FRAMEWORK
-% ---------------------
-% For each unique L-R pair present in either network, we compare:
-%
-%   Condition:  distribution of interaction strengths across all cluster pairs
-%   Reference:  distribution of interaction strengths across all cluster pairs
-%
-% Three test types are used adaptively:
-%
-%   Two-sample (has reference): Wilcoxon rank-sum on per-cluster-pair strengths.
-%     More powerful than the previous permutation-of-cluster-labels approach
-%     because it uses the actual strength distribution, not just presence/absence.
-%
-%   One-sample (no reference): one-sided Wilcoxon signed-rank test against zero.
-%     Tests whether the channel is significantly above background.
-%
-%   Normalized MI enrichment: separate test on the KSG normalized MI values
-%     (I(X;Y)/H(X) ∈ [0,1]), which are independent of expression level and
-%     capture pure information transmission. This is the novel test — existing
-%     tools cannot perform it because they don't estimate mutual information.
-%
-% OUTPUTS
-% -------
-% The output table contains both the traditional differential score AND
-% the channel-capacity-based enrichment, allowing downstream analyses to
-% distinguish "more expressed" from "more informative."
-%
-% USAGE
-%   diff_channels = identify_differential_channels(condition_network, reference_network)
-%   diff_channels = identify_differential_channels(condition_network, reference_network, 200, 0.05)
-%
-% INPUTS
-%   condition_network  - Network struct from build_communication_network()
-%                        for the condition of interest
-%   reference_network  - Network struct for the reference/control condition.
-%                        Pass create_empty_network() for one-sample mode.
-%   n_permutations     - Bootstrap iterations for CI estimation (default 200)
-%   fdr_threshold      - BH-FDR cutoff for reporting (default 0.05)
+% Usage: diff_channels = identify_differential_channels(cond_net, ref_net)
+%        diff_channels = identify_differential_channels(cond_net, ref_net, 200, 0.05)
+% Inputs:  condition_network  - Network struct from build_communication_network()
+%          reference_network  - Reference network; pass create_empty_network() for one-sample mode
+%          n_permutations     - Bootstrap iterations for CI estimation (default 200)
+%          fdr_threshold      - BH-FDR cutoff for reporting (default 0.05)
 
 fprintf('Identifying differential communication channels...\n\n');
 
@@ -56,15 +24,13 @@ has_reference = ~isempty(reference_network) && ...
     isfield(reference_network, 'ligands') && ...
     ~isempty(reference_network.ligands);
 
+% One-sample mode tests each channel against zero; two-sample compares distributions.
 if has_reference
     fprintf('  Mode: two-sample (condition vs. reference)\n');
 else
     fprintf('  Mode: one-sample (condition characterization)\n');
 end
 
-%% Aggregate per-pair strengths
-
-% Condition: aggregate strength per unique L-R pair
 cond_pairs  = aggregate_by_lr(condition_network);
 has_capacity = isfield(condition_network, 'channel_capacity') && ...
                ~isempty(condition_network.channel_capacity);
@@ -75,7 +41,6 @@ else
     ref_pairs = containers.Map();
 end
 
-% Union of all L-R pairs
 all_keys = union(keys(cond_pairs), keys(ref_pairs));
 n_pairs  = length(all_keys);
 
@@ -86,8 +51,6 @@ else
     fprintf('  Reference: no data (using one-sample tests)\n');
 end
 fprintf('\n');
-
-%% Statistical testing
 
 Ligand         = cell(n_pairs, 1);
 Receptor       = cell(n_pairs, 1);
@@ -144,15 +107,12 @@ for i = 1:n_pairs
 
     Log2FC(i) = log2((CondStrength(i) + 1e-6) / (RefStrength(i) + 1e-6));
 
-    % Statistical test
     if has_reference && ~isempty(ref_vals)
-        % Two-sample Wilcoxon rank-sum
         try
             PValue(i) = ranksum(cond_vals, ref_vals);
         catch
             PValue(i) = 1;
         end
-        % Capacity test
         if ~isempty(cond_caps) && ~isempty(ref_caps)
             try
                 PValueCapacity(i) = ranksum(cond_caps, ref_caps);
@@ -161,10 +121,9 @@ for i = 1:n_pairs
             end
         end
     else
-        % One-sample signed-rank test vs. zero, one-sided (right tail).
-        % We test H1: median > 0, i.e., the channel is above background.
-        % A two-sided test would also flag channels significantly BELOW zero,
-        % which makes no biological sense for expression strengths or MI values.
+        % One-sample: one-sided right-tail test (H1: median > 0).
+        % Two-sided would spuriously flag channels significantly below zero,
+        % which has no meaning for expression strengths or MI values.
         if length(cond_vals) >= 5
             try
                 PValue(i) = signrank(cond_vals, 0, 'tail', 'right');
@@ -189,9 +148,8 @@ for i = 1:n_pairs
         Direction{i} = 'Absent';
     end
 
-    % Bootstrap CIs from KSG estimator (propagated from estimate_channel_capacity)
-    % ci_lo/ci_hi are already the 2.5th/97.5th percentiles of the bootstrap
-    % distribution computed during MI estimation. Take the mean across cluster-pairs.
+    % CIs propagated from estimate_channel_capacity (2.5th/97.5th percentiles
+    % of the KSG bootstrap). For Spearman-fallback pairs, lo == hi == CondCapacity.
     if ~isempty(cond_ci_lo) && any(~isnan(cond_ci_lo))
         BootCI_lo(i) = mean(cond_ci_lo(~isnan(cond_ci_lo)));
         BootCI_hi(i) = mean(cond_ci_hi(~isnan(cond_ci_hi)));
@@ -200,8 +158,6 @@ for i = 1:n_pairs
         BootCI_hi(i) = CondCapacity(i);
     end
 end
-
-%% Multiple testing correction
 
 fprintf('  [2/4] Multiple testing correction (Benjamini-Hochberg)...\n');
 [~, sort_idx] = sort(PValue);
@@ -222,28 +178,19 @@ for i = n-1:-1:1
     FDRCapacity(sort_idx2(i)) = min(FDRCapacity(sort_idx2(i)), FDRCapacity(sort_idx2(i+1)));
 end
 
-%% Bootstrap CI summary (no separate loop needed — CIs already propagated from KSG estimator)
-
 fprintf('  [3/4] Bootstrap CIs: propagated from KSG estimator (%d resamples each)...\n', n_permutations);
-% CIs were assigned in the main loop above from network.ci_lower/ci_upper.
-% For pairs where KSG was not run (Spearman fallback), BootCI_lo = BootCI_hi = CondCapacity.
 n_ci_valid = sum(BootCI_lo ~= BootCI_hi);
 fprintf('  Bootstrap CIs valid for %d / %d pairs\n', n_ci_valid, n_pairs);
 if n_ci_valid > 0
     mean_width = mean(BootCI_hi(BootCI_lo ~= BootCI_hi) - BootCI_lo(BootCI_lo ~= BootCI_hi));
     fprintf('  Mean 95%% CI width: %.4f bits (n=16: expected ~0.10-0.20)\n', mean_width);
-    %% Placeholder — legacy code referenced these; keep for compatibility:
     top_idx = 1;  %#ok<NASGU>
     top_boot = 1; %#ok<NASGU>
 end
 
-%% Pathway annotation
-
 fprintf('  [4/4] Annotating pathways and channel types...\n');
 Pathway    = annotate_pathways(Ligand, Receptor);
 ChannelType = classify_channel_type(CondCapacity, CondFrequency, n_pairs);
-
-%% Assemble output table
 
 diff_channels = table(Ligand, Receptor, ...
     CondStrength, RefStrength, Log2FC, ...
@@ -253,7 +200,6 @@ diff_channels = table(Ligand, Receptor, ...
     BootCI_lo, BootCI_hi, ...
     Direction, Pathway, ChannelType);
 
-% Sort by FDR then capacity
 [~, sort_order] = sortrows([FDR, -CondCapacity]);
 diff_channels = diff_channels(sort_order, :);
 
@@ -270,7 +216,6 @@ if n_sig > 0
         diff_channels.Log2FC(1), diff_channels.CondCapacity(1));
 end
 
-% Save
 out_dir = 'results';
 if ~exist(out_dir, 'dir'), out_dir = '.'; end
 try
@@ -286,10 +231,8 @@ fprintf('\n');
 end  % main
 
 
-%% ── Local helpers ────────────────────────────────────────────────────────────
-
 function pair_map = aggregate_by_lr(network)
-% Build containers.Map: 'Ligand|||Receptor' → struct(.strengths, .capacities, .ci_lo, .ci_hi)
+% Build 'Ligand|||Receptor' → struct(.strengths, .capacities, .ci_lo, .ci_hi)
 pair_map = containers.Map();
 has_cap  = isfield(network, 'channel_capacity') && ~isempty(network.channel_capacity);
 has_ci   = isfield(network, 'ci_lower') && ~isempty(network.ci_lower);
@@ -359,7 +302,6 @@ end
 
 
 function types = classify_channel_type(capacities, frequencies, n)
-% Classify each channel by capacity × frequency
 types = cell(n,1);
 cap_med = median(capacities(capacities > 0));
 if isnan(cap_med) || cap_med == 0, cap_med = 0.05; end
@@ -370,13 +312,13 @@ for i = 1:n
     hi_cap  = capacities(i)  > cap_med;
     hi_freq = frequencies(i) > freq_med;
     if hi_cap && hi_freq
-        types{i} = 'HighCapacity_Broadcast';      % strong, widespread
+        types{i} = 'HighCapacity_Broadcast';
     elseif hi_cap && ~hi_freq
-        types{i} = 'HighCapacity_Selective';       % strong, few clusters
+        types{i} = 'HighCapacity_Selective';
     elseif ~hi_cap && hi_freq
-        types{i} = 'LowCapacity_Broadcast';        % weak, widespread
+        types{i} = 'LowCapacity_Broadcast';
     else
-        types{i} = 'LowCapacity_Selective';        % weak, few clusters
+        types{i} = 'LowCapacity_Selective';
     end
 end
 end

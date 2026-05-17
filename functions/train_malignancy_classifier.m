@@ -1,36 +1,19 @@
 function [classifier, perf] = train_malignancy_classifier( ...
         condition_latent, ref_latent, test_fraction)
-% TRAIN_MALIGNANCY_CLASSIFIER  Train a binary classifier to distinguish
-%   condition cells from reference cells in latent communication space.
+% TRAIN_MALIGNANCY_CLASSIFIER  Binary classifier on latent communication space.
 %
-% Uses the latent representations produced by train_communication_autoencoder
-% to learn a compact separator between two biological states. This reveals
-% which communication-latent dimensions best discriminate the conditions.
-%
-% When the Statistics and Machine Learning Toolbox is available, trains a
-% regularised logistic regression (lasso penalty) or linear SVM. Falls back
-% to a nearest-centroid (LDA-style) classifier otherwise.
-%
-% USAGE
+% Usage
 %   [classifier, perf] = train_malignancy_classifier(condition_latent, ref_latent)
 %   [classifier, perf] = train_malignancy_classifier(condition_latent, ref_latent, test_fraction)
 %
-% INPUTS
-%   condition_latent - (n_cells_cond × n_latent) matrix of latent codes for
-%                      the condition of interest (from train_communication_autoencoder).
-%   ref_latent       - (n_cells_ref × n_latent) matrix of latent codes for
-%                      the reference / control cells.
-%   test_fraction    - Fraction of cells held out for evaluation (default: 0.2).
+% Inputs
+%   condition_latent - (n_cells_cond × n_latent) latent codes from train_communication_autoencoder
+%   ref_latent       - (n_cells_ref × n_latent) latent codes for reference/control cells
+%   test_fraction    - Fraction held out for evaluation (default: 0.2)
 %
-% OUTPUTS
-%   classifier - Trained classifier object, or a struct with a .predict
-%                function handle for the fallback nearest-centroid case.
-%   perf       - Struct with performance metrics:
-%                  .accuracy          Overall accuracy on held-out test set
-%                  .auc               Area under ROC curve (condition = positive)
-%                  .n_condition       Number of condition cells used
-%                  .n_reference       Number of reference cells used
-%                  .method            'svm', 'logistic', or 'nearest_centroid'
+% Outputs
+%   classifier - Trained model, or struct with .predict handle (nearest-centroid fallback)
+%   perf       - Struct: .accuracy, .auc, .n_condition, .n_reference, .method
 
 if nargin < 3 || isempty(test_fraction)
     test_fraction = 0.2;
@@ -38,8 +21,6 @@ end
 
 fprintf('  [Classifier] %d condition vs %d reference cells in %d-D latent space\n', ...
     size(condition_latent,1), size(ref_latent,1), size(condition_latent,2));
-
-%% Assemble labelled dataset
 
 X = [condition_latent; ref_latent];
 y = [ones(size(condition_latent,1),1); zeros(size(ref_latent,1),1)];
@@ -57,8 +38,6 @@ X_test  = X(test_idx,  :);  y_test  = y(test_idx);
 perf = struct();
 perf.n_condition = size(condition_latent, 1);
 perf.n_reference = size(ref_latent, 1);
-
-%% Attempt toolbox classifiers
 
 has_stats = license('test', 'Statistics_Toolbox') || ...
             license('test', 'Statistics_and_Machine_Learning_Toolbox');
@@ -78,14 +57,12 @@ if has_stats
     end
 end
 
-%% Nearest-centroid fallback
-
 [classifier, perf] = train_nearest_centroid(X_train, y_train, X_test, y_test, perf);
 
 end
 
 
-%% ── SVM ──────────────────────────────────────────────────────────────────────
+% SVM classifier
 
 function [classifier, perf] = train_with_svm(X_train, y_train, X_test, y_test, perf)
 
@@ -104,7 +81,7 @@ fprintf('  [Classifier] SVM: accuracy=%.3f, AUC=%.3f\n', perf.accuracy, perf.auc
 end
 
 
-%% ── Logistic regression ──────────────────────────────────────────────────────
+% Logistic regression classifier
 
 function [classifier, perf] = train_with_logistic(X_train, y_train, X_test, y_test, perf)
 
@@ -123,7 +100,7 @@ fprintf('  [Classifier] Logistic: accuracy=%.3f, AUC=%.3f\n', perf.accuracy, per
 end
 
 
-%% ── Nearest-centroid fallback ────────────────────────────────────────────────
+% Nearest-centroid fallback
 
 function [classifier, perf] = train_nearest_centroid(X_train, y_train, X_test, y_test, perf)
 

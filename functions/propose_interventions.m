@@ -2,47 +2,22 @@ function interventions = propose_interventions(target_rankings, network, config)
 % PROPOSE_INTERVENTIONS  Generate ranked intervention strategies from
 %   communication channel rankings.
 %
-% For each high-scoring target, three intervention types are evaluated:
+% Three strategies per target: Inhibition, Activation, Combination.
+% Combination priority = sqrt(p_inh * p_act) + synergy bonus (0.05 when
+% both TherapeuticScore > 0.5 and DruggabilityScore > 0.5).
 %
-%   Inhibition   — block ligand secretion or receptor binding. Relevant when
-%                  a channel transmits pro-disease information (e.g., a
-%                  suppressive checkpoint or a tumour-promoting growth signal).
-%
-%   Activation   — augment signalling through an understimulated channel.
-%                  Relevant for protective or anti-inflammatory pathways.
-%
-%   Combination  — simultaneous targeting of ligand and receptor. Scored as
-%                  the geometric mean of the two individual strategy scores,
-%                  with an additive synergy bonus when both sub-units score
-%                  above 0.5.
-%
-% Intervention priority is a linear combination of:
-%   - TherapeuticScore from rank_therapeutic_targets / rank_communication_channels
-%   - DruggabilityScore
-%   - A channel-capacity bonus (high MI → stronger evidence of actual transmission)
-%
-% USAGE
-%   interventions = propose_interventions(target_rankings)
-%   interventions = propose_interventions(target_rankings, network, config)
-%
-% INPUTS
-%   target_rankings - Table from rank_therapeutic_targets() or
-%                     rank_communication_channels(). Must contain columns:
-%                     Ligand, Receptor, TherapeuticScore (or InformationScore),
-%                     DruggabilityScore, ChannelCapacity (or CondCapacity).
-%   network         - (optional) Communication network struct; used only for
-%                     frequency-based filtering. Ignored when empty.
-%   config          - (optional) Struct with fields:
-%                       .n_top           Max targets to expand (default: 20)
-%                       .min_score       Minimum TherapeuticScore to include
-%                                        (default: 0.1)
-%                       .output_dir      Directory for CSV export (default: 'results')
-%                       .dataset_name    String prefix for output files
-%
-% OUTPUT
-%   interventions - Table sorted by Priority with columns:
-%       Ligand, Receptor, Strategy, Priority, TherapeuticScore,
-%       DruggabilityScore, ChannelCapacity, Rationale
+% Usage: interventions = propose_interventions(target_rankings)
+%        interventions = propose_interventions(target_rankings, network, config)
+% Inputs:  target_rankings - Table from rank_therapeutic_targets() or
+%                            rank_communication_channels(). Must contain Ligand,
+%                            Receptor, TherapeuticScore (or InformationScore),
+%                            DruggabilityScore, ChannelCapacity (or CondCapacity).
+%          network         - (optional) Network struct; used only for frequency filtering.
+%          config          - (optional) Struct: .n_top (20), .min_score (0.1),
+%                            .output_dir ('results'), .dataset_name ('Dataset').
+% Output:  interventions   - Table sorted by Priority: Ligand, Receptor, Strategy,
+%                            Priority, TherapeuticScore, DruggabilityScore,
+%                            ChannelCapacity, Rationale.
 
 if nargin < 2, network = []; end
 if nargin < 3, config  = struct(); end
@@ -51,8 +26,6 @@ if ~isfield(config, 'n_top'),        config.n_top        = 20;       end
 if ~isfield(config, 'min_score'),    config.min_score    = 0.1;      end
 if ~isfield(config, 'output_dir'),   config.output_dir   = 'results'; end
 if ~isfield(config, 'dataset_name'), config.dataset_name = 'Dataset'; end
-
-% ── Normalise column names ────────────────────────────────────────────────────
 
 cols = target_rankings.Properties.VariableNames;
 score_col = 'TherapeuticScore';
@@ -73,8 +46,6 @@ end
 drug_col = 'DruggabilityScore';
 has_drug = any(strcmp(cols, drug_col));
 
-% ── Select top targets ────────────────────────────────────────────────────────
-
 scores   = target_rankings.(score_col);
 keep_idx = scores >= config.min_score;
 top_tbl  = target_rankings(keep_idx, :);
@@ -90,9 +61,7 @@ if n_targets == 0
     return;
 end
 
-% ── Build intervention rows ───────────────────────────────────────────────────
-
-n_rows = n_targets * 3;  % Inhibition, Activation, Combination per target
+n_rows = n_targets * 3;
 Ligand          = cell(n_rows, 1);
 Receptor        = cell(n_rows, 1);
 Strategy        = cell(n_rows, 1);
@@ -111,7 +80,7 @@ for i = 1:n_targets
     ds   = 0;
     if has_drug, ds = top_tbl.(drug_col)(i); end
 
-    cap_bonus = min(1, cap * 2);  % bonus for high channel capacity
+    cap_bonus = min(1, cap * 2);
 
     % Strategy 1: Inhibition
     row = row + 1;
@@ -141,7 +110,7 @@ for i = 1:n_targets
         'High capacity (%.3f) indicates robust communication; '...
         'activation may amplify protective or regenerative effects.'], lig, rec, cap);
 
-    % Strategy 3: Combination (ligand + receptor co-targeting)
+    % Strategy 3: Combination — sqrt(p_inh * p_act) + 0.05 synergy when both > 0.5
     row = row + 1;
     synergy   = double(ts > 0.5 && ds > 0.5) * 0.05;
     p_combo   = sqrt(p_inh * p_act) + synergy;
@@ -157,15 +126,12 @@ for i = 1:n_targets
         'exceeds 0.3, indicating strong inter-donor co-variation.'], lig, rec, cap);
 end
 
-% ── Assemble, sort, export ────────────────────────────────────────────────────
-
 interventions = table(Ligand, Receptor, Strategy, Priority, ...
     TherapeuticScore, DruggabilityScore, ChannelCapacity, Rationale);
 
 [~, idx] = sort(interventions.Priority, 'descend');
 interventions = interventions(idx, :);
 
-% Save
 out_dir = config.output_dir;
 if ~exist(out_dir, 'dir'), mkdir(out_dir); end
 try

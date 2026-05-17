@@ -1,26 +1,19 @@
 % run_kang2018.m  —  NEUROSCOPE v5.2 on Kang et al. 2018 PBMC
-% 8 donors × 2 conditions (ctrl + IFN-beta) = 16 pseudobulk samples
-% KSG MI active (>=10 samples, MIN_N=10).
+% 8 donors x 2 conditions (ctrl + IFN-beta), 8 cell types.
 % Run: matlab -batch "cd('c:/arjun-project/neuroscope'); run_kang2018"
 
 addpath(genpath('functions'));
 
 config = struct();
-
-% Identity
 config.dataset_name    = 'Kang2018';
 config.condition_name  = 'PBMC_IFNbeta';
 config.reference_name  = '';
-
-% Paths
 config.expr_path           = 'converted/kang2018/kang_expression_sparse.mat';
 config.metadata_path       = 'converted/kang2018/kang_cell_metadata.csv';
 config.cellphonedb_dir     = 'converted';
 config.reference_expr_path = '';
 config.reference_meta_path = '';
 config.output_dir          = 'results/kang2018';
-
-% Run parameters
 config.n_permutations = 200;
 config.fdr_threshold  = 0.05;
 config.run_ml         = false;
