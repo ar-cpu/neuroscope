@@ -30,7 +30,7 @@ CellChat and similar tools score L-R co-expression using the trimean statistic. 
 
 NEUROSCOPE replaces the trimean with **KSG mutual information channel capacity**: I(ligand_distribution; receptor_distribution) estimated via the Kraskov-Stögbauer-Grassberger k-NN estimator on donor-level cluster means. This captures inter-donor variation even at 15% per-cell sparsity.
 
-**Benchmark 1 — Kang 2018 PBMC, GSE96583 (n = 18 donors, IFN-β stimulation):**
+**Benchmark 1 — Kang 2018 PBMC, GSE96583 (n = 16 pseudobulk samples, 8 donors × 2 conditions):**
 - 5/5 NEUROSCOPE top capacity-significant pairs were invisible to CellChat (CellChat trimean = 0 in all cluster combinations)
 - Synthetic ground-truth AUROC: KSG = **1.000** vs. co-expression scoring = 0.506
 - Top capacity-only pairs: CXCL11→CXCR3, IL1RN→IL1R2, CXCL10→CXCR3 (IFN-inducible chemokines and cytokine regulators — biologically coherent)

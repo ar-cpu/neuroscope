@@ -173,10 +173,110 @@ end
 
 savefig_both(fig2, out_dir, 'Fig2_channel_types');
 
+% Fig3: Synthetic ground-truth benchmark — always generated (no data required)
+try
+    sim = simulate_communication_ground_truth('n', 200, 'n_causal', 20, ...
+        'n_dead', 20, 'n_null', 20, 'beta', 0.6, 'noise_sd', 0.8, ...
+        'zero_frac', 0.6, 'seed', 42, 'plot', false, 'verbose', false);
+
+    fig3 = figure('Name','Fig3_Benchmark_AUROC','Position',[100 100 1000 420],'Color','w');
+
+    ax_roc = subplot(1,2,1,'Parent',fig3);
+    [fpr_k, tpr_k] = local_roc(sim.mi_ksg,  sim.label);
+    [fpr_c, tpr_c] = local_roc(sim.coexpr,  sim.label);
+    hold(ax_roc,'on');
+    plot(ax_roc, fpr_k, tpr_k, '-',  'Color',[0.18 0.45 0.70], 'LineWidth',2.0, ...
+        'DisplayName', sprintf('KSG MI  (AUROC = %.3f)', sim.auroc_ksg));
+    plot(ax_roc, fpr_c, tpr_c, '--', 'Color',[0.80 0.50 0.10], 'LineWidth',1.8, ...
+        'DisplayName', sprintf('Co-expression  (AUROC = %.3f)', sim.auroc_coexpr));
+    plot(ax_roc, [0 1],[0 1], ':', 'Color',[0.75 0.75 0.75], 'HandleVisibility','off');
+    hold(ax_roc,'off');
+    xlabel(ax_roc,'False positive rate','FontSize',11);
+    ylabel(ax_roc,'True positive rate', 'FontSize',11);
+    title(ax_roc,'A   ROC: causal vs. non-causal L-R pairs','FontSize',12,'FontWeight','bold');
+    legend(ax_roc,'Location','southeast','FontSize',9);
+    xlim(ax_roc,[0 1]); ylim(ax_roc,[0 1]);
+    set(ax_roc,'Box','off','TickDir','out','FontSize',10);
+
+    ax_bar = subplot(1,2,2,'Parent',fig3);
+    vals = [sim.auroc_ksg, sim.auroc_coexpr];
+    bh3 = bar(ax_bar, 1:2, vals, 0.5, 'FaceColor','flat','EdgeColor','none');
+    bh3.CData = [0.18 0.45 0.70; 0.80 0.50 0.10];
+    ylim(ax_bar,[0 1]);
+    set(ax_bar,'XTickLabel',{'KSG MI','Co-expression'},'XTick',1:2,...
+        'Box','off','TickDir','out','FontSize',10);
+    ylabel(ax_bar,'AUROC','FontSize',11);
+    title(ax_bar,'B   AUROC comparison (n=200 synthetic cells/pair)','FontSize',12,'FontWeight','bold');
+    yline(ax_bar, 0.5, 'k:', 'LineWidth',1);
+    text(ax_bar, 0.6, 0.52, 'Random (0.500)','FontSize',9,'Color',[0.5 0.5 0.5]);
+    for i = 1:2
+        text(ax_bar, i, vals(i)+0.02, sprintf('%.3f',vals(i)), ...
+            'HorizontalAlignment','center','FontSize',11,'FontWeight','bold');
+    end
+
+    savefig_both(fig3, out_dir, 'Fig3_benchmark_auroc');
+catch ME_sim
+    fprintf('  Warning: benchmark Fig3 skipped (%s)\n', ME_sim.message);
+end
+
+% Fig4: CellChat comparison — generated when comparison CSV exists
+comp_csv = fullfile(config.output_dir, 'comparison_cellchat_vs_neuroscope.csv');
+if exist(comp_csv, 'file')
+    try
+        comp = readtable(comp_csv, 'TextType', 'string');
+        cats = {'Both','Capacity_Only','Strength_Only'};
+        cat_labels = {'Both', 'NEUROSCOPE-only', 'CellChat-only'};
+        cat_colors = [0.30 0.60 0.30; 0.18 0.45 0.70; 0.80 0.50 0.10];
+        counts4 = cellfun(@(c) sum(strcmp(comp.Category, c)), cats);
+
+        fig4 = figure('Name','Fig4_CellChat_Comparison','Position',[100 100 1000 420],'Color','w');
+
+        ax_cc1 = subplot(1,2,1,'Parent',fig4);
+        bh4 = bar(ax_cc1, 1:3, counts4, 0.6, 'FaceColor','flat','EdgeColor','none');
+        for i = 1:3, bh4.CData(i,:) = cat_colors(i,:); end
+        set(ax_cc1,'XTickLabel',cat_labels,'XTick',1:3,'Box','off','TickDir','out','FontSize',10);
+        xtickangle(ax_cc1, 20);
+        ylabel(ax_cc1,'Number of L-R pairs','FontSize',11);
+        title(ax_cc1,'A   NEUROSCOPE vs. CellChat','FontSize',12,'FontWeight','bold');
+        for i = 1:3
+            if counts4(i) > 0
+                text(ax_cc1, i, counts4(i)+0.1, num2str(counts4(i)), ...
+                    'HorizontalAlignment','center','FontSize',11,'FontWeight','bold');
+            end
+        end
+
+        ax_cc2 = subplot(1,2,2,'Parent',fig4);
+        ns_mask  = strcmp(comp.Category,'Capacity_Only');
+        bth_mask = strcmp(comp.Category,'Both');
+        has_cap = ismember('NEUROSCOPE_Capacity', comp.Properties.VariableNames);
+        if has_cap && (sum(ns_mask)>0 || sum(bth_mask)>0)
+            cap_ns  = comp.NEUROSCOPE_Capacity(ns_mask);
+            cap_bth = comp.NEUROSCOPE_Capacity(bth_mask);
+            cap_ns  = cap_ns(~isnan(cap_ns));
+            cap_bth = cap_bth(~isnan(cap_bth));
+
+            zf_mask = ns_mask & (strcmp(comp.CellChat_ZeroFloor,'True') | comp.CellChat_ZeroFloor == "True");
+            n_zf = sum(zf_mask);
+            n_nozf = sum(ns_mask) - n_zf;
+
+            ph = pie(ax_cc2, [n_zf, n_nozf], {'Zero-floor', 'Other reason'});
+            ph(1).FaceColor = [0.18 0.45 0.70];
+            ph(3).FaceColor = [0.75 0.75 0.75];
+            title(ax_cc2, sprintf('B   Why CellChat misses %d pairs', sum(ns_mask)), ...
+                'FontSize',12,'FontWeight','bold');
+        end
+
+        savefig_both(fig4, out_dir, 'Fig4_cellchat_comparison');
+    catch ME_cc
+        fprintf('  Warning: CellChat comparison Fig4 skipped (%s)\n', ME_cc.message);
+    end
+end
+
+% Fig6: Communication identity — generated only when identity data is available
 if isstruct(identity_results) && isfield(identity_results, 'ari') && ...
    ~isnan(identity_results.ari)
 
-    fig3 = figure('Name','Fig3_Communication_Identity', ...
+    fig3 = figure('Name','Fig6_Communication_Identity', ...
         'Position',[100 100 1000 400], 'Color','w');
 
     ax6 = subplot(1,2,1, 'Parent', fig3);
@@ -222,13 +322,14 @@ if isstruct(identity_results) && isfield(identity_results, 'ari') && ...
         set(ax7, 'Box','off','TickDir','out','FontSize',10);
     end
 
-    savefig_both(fig3, out_dir, 'Fig3_communication_identity');
+    savefig_both(fig3, out_dir, 'Fig6_communication_identity');
 end
 
+% Fig7: Causal validation — generated only when sufficient causal data available
 if isstruct(causal_results) && isfield(causal_results, 'table') && ...
    istable(causal_results.table) && height(causal_results.table) > 0
 
-    fig4 = figure('Name','Fig4_Causal_Validation', ...
+    fig4 = figure('Name','Fig7_Causal_Validation', ...
         'Position',[100 100 1000 400], 'Color','w');
     ct = causal_results.table;
 
@@ -278,7 +379,7 @@ if isstruct(causal_results) && isfield(causal_results, 'table') && ...
         end
     end
 
-    savefig_both(fig4, out_dir, 'Fig4_causal_validation');
+    savefig_both(fig4, out_dir, 'Fig7_causal_validation');
 end
 
 if isstruct(comm_programs) && isfield(comm_programs, 'rank') && ...
@@ -333,6 +434,16 @@ end
 
 fprintf('Paper figures saved to: %s\n\n', out_dir);
 
+end
+
+
+function [fpr, tpr] = local_roc(scores, labels)
+[~, ord] = sort(scores, 'descend');
+ls = labels(ord);
+n_pos = max(sum(ls), 1);
+n_neg = max(sum(~ls), 1);
+fpr = [0; cumsum(~ls)] / n_neg;
+tpr = [0; cumsum(ls)]  / n_pos;
 end
 
 

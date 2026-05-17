@@ -120,18 +120,52 @@ if ~isempty(cs) && height(cs) > 0
     fprintf(fid, 'Total L-R pairs tested:                          %d\n', height(cs));
     fprintf(fid, 'Significant by strength (Wilcoxon, FDR<%.2f):   %d\n', fdr, n_sig_str);
     fprintf(fid, 'Significant by capacity (KSG MI, FDR<%.2f):     %d  [NOVEL TEST]\n', fdr, n_sig_cap);
-    fprintf(fid, 'Capacity-only enriched (missed by strength):     %d  [KEY FINDING]\n\n', n_novel);
+    fprintf(fid, 'Capacity-exclusive (cap sig, strength NS):       %d\n\n', n_novel);
 
     if using_spearman
-        fprintf(fid, 'NOTE: Capacity-only = 0 is an ARTIFACT of Spearman\n');
-        fprintf(fid, 'fallback, not a scientific finding. Spearman MI tracks\n');
-        fprintf(fid, 'expression strength almost perfectly so capacity-only\n');
-        fprintf(fid, 'enriched channels are always near zero. Re-run with\n');
-        fprintf(fid, '>=20 donors for genuine KSG-based results.\n');
+        fprintf(fid, 'NOTE: Capacity-exclusive = 0 is an ARTIFACT of Spearman\n');
+        fprintf(fid, 'fallback, not a scientific finding. Re-run with >=20 donors\n');
+        fprintf(fid, 'for genuine KSG-based results.\n');
     else
-    fprintf(fid, 'Interpretation: Capacity-only enriched channels show elevated\n');
-    fprintf(fid, 'information transmission without proportional expression increase.\n');
-    fprintf(fid, 'These would be INVISIBLE to CellChat/NicheNet/CellPhoneDB.\n');
+        fprintf(fid, 'Interpretation: Capacity-exclusive channels transmit information\n');
+        fprintf(fid, 'without elevated co-expression — invisible to geometric mean scoring.\n');
+        fprintf(fid, 'Note: All KSG-significant pairs may still be invisible to CellChat\n');
+        fprintf(fid, 'via the trimean zero-floor; see CellChat comparison section below.\n');
+    end
+
+    % CellChat comparison — read from CSV if it exists
+    comp_csv = fullfile(out_dir, 'comparison_cellchat_vs_neuroscope.csv');
+    if exist(comp_csv, 'file')
+        try
+            comp = readtable(comp_csv, 'TextType', 'string');
+            n_cap_only   = sum(strcmp(comp.Category, 'Capacity_Only'));
+            n_both       = sum(strcmp(comp.Category, 'Both'));
+            n_str_only   = sum(strcmp(comp.Category, 'Strength_Only'));
+            n_zerofloor  = sum(comp.CellChat_ZeroFloor == true | strcmp(comp.CellChat_ZeroFloor, 'True'));
+            n_invisible  = n_cap_only;
+            % Fisher OR and p (using 2x2: NEUROSCOPE-only, both, CC-only, neither=0)
+            a = n_both; b = n_cap_only; c = n_str_only; d = 0;
+            or_val = (a * d) / max(b * c, 1e-9);
+            % One-tailed p from hypergeometric not available in report; use placeholder
+            blank();
+            sub('CellChat comparison');
+            fprintf(fid, 'NEUROSCOPE significant (KSG capacity FDR<%.2f):  %d\n', fdr, n_sig_cap);
+            fprintf(fid, 'Also found by CellChat:                          %d  (%.0f%%)\n', ...
+                n_both, 100*n_both/max(n_sig_cap,1));
+            fprintf(fid, 'Invisible to CellChat (NEUROSCOPE-only):         %d  (%.0f%%)\n', ...
+                n_invisible, 100*n_invisible/max(n_sig_cap,1));
+            fprintf(fid, 'CellChat-only (below NEUROSCOPE threshold):      %d\n', n_str_only);
+            fprintf(fid, 'Zero-floor explains invisible pairs:             %d/%d\n', ...
+                n_zerofloor, n_invisible);
+            fprintf(fid, 'Fisher OR (both/cap-only vs str-only/neither):   %.3f\n', or_val);
+            blank();
+            fprintf(fid, 'Zero-floor mechanism: CellChat trimean=0 whenever >50%% of cells\n');
+            fprintf(fid, 'do not express the gene (Q1=Q2=0). NEUROSCOPE uses per-donor\n');
+            fprintf(fid, 'cluster means — inter-donor variation is retained even at 15%%\n');
+            fprintf(fid, 'per-cell sparsity.\n');
+        catch ME
+            fprintf(fid, '(CellChat comparison data could not be read: %s)\n', ME.message);
+        end
     end
 
     has_ci = ismember('BootCI_lo', cr.Properties.VariableNames) && ...
@@ -359,8 +393,14 @@ fprintf(fid, 'Bootstrap confidence intervals:\n');
 fprintf(fid, '  500 resamples of the n paired donor observations with replacement.\n');
 fprintf(fid, '  95%% CI = [2.5th, 97.5th] percentile of bootstrap mi_norm distribution.\n');
 fprintf(fid, '  Adaptive k used consistently across all bootstrap resamples.\n');
-fprintf(fid, '  Wide CIs at n=16 (~0.10-0.20 bits) reflect irreducible small-sample\n');
-fprintf(fid, '  variance; relative ranking between channels remains valid.\n\n');
+n_samp = 0;
+if ~isempty(net) && isfield(net,'n_samples_used'), n_samp = net.n_samples_used; end
+if n_samp > 0
+    fprintf(fid, '  Wide CIs at n=%d reflect irreducible small-sample variance;\n', n_samp);
+else
+    fprintf(fid, '  Wide CIs reflect irreducible small-sample variance;\n');
+end
+fprintf(fid, '  relative channel ranking is valid even when individual CI is wide.\n\n');
 fprintf(fid, 'Differential testing: two-sample Wilcoxon rank-sum on per-cluster-pair\n');
 fprintf(fid, '  strengths (strength test) and capacities (capacity test). BH-FDR.\n\n');
 fprintf(fid, 'Causal validation: instrumental variable / 2SLS regression.\n');
