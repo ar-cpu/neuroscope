@@ -1,48 +1,12 @@
 function role_results = discover_communication_role_asymmetry(gbm_network, gbm_clusters, gbm_specific)
-% DISCOVER_COMMUNICATION_ROLE_ASYMMETRY  Classify cell clusters as signal
-%   broadcasters, listeners, or balanced integrators based on their
-%   out-degree versus in-degree in the directed ligand-receptor network.
+% DISCOVER_COMMUNICATION_ROLE_ASYMMETRY  Classify clusters as broadcasters,
+%   listeners, or balanced integrators via RoleIndex = (out-in)/(out+in).
 %
-% Conceptual basis
-% ----------------
-% In a directed cell-cell communication network each interaction edge flows
-% from a source (ligand-expressing) cluster to a target (receptor-expressing)
-% cluster. A cluster's communication role is captured by the signed asymmetry
-% of its degree:
-%
-%   RoleIndex = (outgoing − incoming) / (outgoing + incoming)  ∈ [−1, +1]
-%
-% Clusters with RoleIndex > +0.3 are classified as "broadcasters" (primary
-% signal senders); those with RoleIndex < −0.3 are "listeners" (primary
-% signal receivers); the remainder are "balanced" integrators. The 0.3
-% threshold is a standard moderate-effect heuristic, not statistically
-% calibrated — treat it as exploratory.
-%
-% The function additionally characterizes the dominant signaling vocabulary
-% of top broadcasters and the source diversity received by top listeners,
-% then cross-references results against the condition-specific interaction
-% table to flag biologically relevant channels.
-%
-% Usage:
-%   role_results = discover_communication_role_asymmetry(gbm_network, gbm_clusters, gbm_specific)
-%
-% Inputs:
-%   gbm_network  - Communication network struct with fields:
-%                    .source_clusters - [N×1] cluster ID of the sending cell
-%                    .target_clusters - [N×1] cluster ID of the receiving cell
-%                    .ligands         - {N×1} ligand gene symbols
-%                    .receptors       - {N×1} receptor gene symbols
-%   gbm_clusters - Table with a column whose name contains 'cluster',
-%                  used to enumerate all valid cluster IDs. If not a table,
-%                  unique IDs are inferred directly from the network.
-%   gbm_specific - Table of condition-specific interactions from
-%                  identify_gbm_specific_interactions(). Used to flag
-%                  broadcaster signals that are condition-enriched.
+% role_results = discover_communication_role_asymmetry(gbm_network, gbm_clusters, gbm_specific)
 %
 % Outputs:
-%   role_results.role_table           - Per-cluster role summary table
-%   role_results.broadcaster_signals  - Top broadcaster clusters with their
-%                                       dominant L-R pair and signal counts
+%   .role_table           - Per-cluster: RoleIndex, RoleClass, signal counts
+%   .broadcaster_signals  - Top broadcaster clusters with dominant L-R pairs
 %   role_results.listener_integration - Top listener clusters with source
 %                                       diversity and total incoming signals
 %   role_results.n_broadcasters       - Number of broadcaster clusters

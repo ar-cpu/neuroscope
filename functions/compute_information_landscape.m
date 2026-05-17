@@ -1,56 +1,20 @@
 function landscape = compute_information_landscape(condition_network, condition_specific, cellphonedb)
-% COMPUTE_INFORMATION_LANDSCAPE  Characterise what fraction of co-expressed
-% L-R pairs transmit measurable information, and how capacity-based ranking
-% differs from co-expression-based ranking.
+% COMPUTE_INFORMATION_LANDSCAPE  Capacity vs co-expression comparison:
+%   fraction of L-R pairs with I≈0, Spearman rank correlation, and 2×2
+%   enrichment table (capacity-only / strength-only / both / neither).
 %
-% THIS FUNCTION GENERATES THE CORE EMPIRICAL CLAIM OF THE NEUROSCOPE PAPER:
+% landscape = compute_information_landscape(condition_network, condition_specific)
+% landscape = compute_information_landscape(..., cellphonedb)
 %
-%   "The majority of ligand-receptor co-expression events detected by
-%   existing tools transmit zero measurable information to receiver cells.
-%   The subset with I(X;Y) > 0 defines a communication landscape that is
-%   only partially predicted by co-expression strength."
-%
-% To make this claim testable and falsifiable, the function computes:
-%
-%   1. Capacity distribution across ALL tested L-R pairs.
-%      → What fraction have capacity ≈ 0 (permutation p > 0.05)?
-%      → This is the headline percentage in the abstract.
-%
-%   2. Capacity vs co-expression rank correlation.
-%      → Spearman r between capacity ranking and strength ranking.
-%      → Low r means capacity reveals interactions invisible to existing tools.
-%
-%   3. Exclusive sets:
-%      → Capacity-only enriched  (FDRCapacity < 0.05, FDR >= 0.05)
-%      → Strength-only enriched  (FDR < 0.05, FDRCapacity >= 0.05)
-%      → Both enriched           (FDRCapacity < 0.05, FDR < 0.05)
-%      → Neither enriched
-%
-%   4. Pathway enrichment comparison:
-%      → Which biological pathways are over-represented among capacity-only
-%        interactions vs strength-only interactions?
-%
-%   5. Database coverage check:
-%      → What fraction of CellPhoneDB pairs are in the network at all?
-%      → High coverage = network building is not the bottleneck.
-%
-% OUTPUTS (struct):
-%   landscape.n_tested              - total L-R pairs tested
-%   landscape.n_zero_capacity       - pairs with pvalue > 0.05 (I≈0)
-%   landscape.zero_fraction         - fraction with I≈0 (the headline number)
-%   landscape.capacity_values       - vector of all capacity values
-%   landscape.strength_values       - vector of all co-expression strengths
-%   landscape.rank_correlation      - Spearman r (capacity rank vs strength rank)
-%   landscape.exclusive_capacity    - table: capacity-only enriched pairs
-%   landscape.exclusive_strength    - table: strength-only enriched pairs
-%   landscape.both_enriched         - table: enriched by both tests
-%   landscape.capacity_pathway_dist - pathway distribution, capacity-only
-%   landscape.strength_pathway_dist - pathway distribution, strength-only
-%   landscape.n_cpdb_pairs          - CellPhoneDB total L-R pairs
-%   landscape.coverage_fraction     - fraction of CPDB pairs tested
+% Outputs (struct):
+%   .n_zero_capacity       - pairs with FDRCapacity >= 0.05
+%   .zero_fraction         - fraction with I≈0
+%   .rank_correlation      - Spearman r (capacity vs strength rank)
+%   .exclusive_capacity    - table: FDR-sig by capacity only
+%   .exclusive_strength    - table: FDR-sig by strength only
+%   .both_enriched / .capacity_pathway_dist / .strength_pathway_dist
 
 fprintf('Computing information landscape...\n');
-fprintf('(This generates the core empirical claim for publication)\n\n');
 
 landscape = struct();
 fdr_cut = 0.05;
@@ -64,10 +28,7 @@ cs = condition_specific;
 n  = height(cs);
 landscape.n_tested = n;
 
-%% 1. Capacity distribution — the headline number
-% "I≈0" = permutation p-value > 0.05 (channel capacity not significant)
-% Note: we use FDRCapacity rather than raw p-value to be conservative.
-% This makes the "I≈0" fraction a LOWER BOUND (actual fraction is higher).
+% 1. Capacity distribution
 
 n_zero     = sum(cs.FDRCapacity >= fdr_cut);
 zero_frac  = n_zero / n;
@@ -84,9 +45,7 @@ fprintf('  %-45s %.4f bits\n', '90th percentile capacity:', ...
     prctile(cs.CondCapacity, 90));
 fprintf('\n');
 
-%% 2. Co-expression strength vs capacity rank correlation
-% If Spearman r is high, capacity adds no information over co-expression.
-% Low r is the key claim that capacity reveals a different landscape.
+% 2. Capacity vs strength rank correlation
 
 if ismember('CondStrength', cs.Properties.VariableNames)
     str_vals = cs.CondStrength;
@@ -115,7 +74,7 @@ else
 end
 fprintf('\n');
 
-%% 3. Four exclusive sets — the 2×2 table for the paper
+% 3. Four exclusive sets (2x2 enrichment table)
 cap_sig = cs.FDRCapacity < fdr_cut;
 str_sig = cs.FDR         < fdr_cut;
 
@@ -142,7 +101,7 @@ fprintf('  %-38s  %5d  %7.1f%%\n', 'Strength-only (no info transmission):',  sum
 fprintf('  %-38s  %5d  %7.1f%%\n', 'Neither significant:',                 sum(neither),  100*mean(neither));
 fprintf('\n');
 
-%% 4. Pathway distribution in exclusive sets
+% 4. Pathway distribution in exclusive sets
 if ismember('Pathway', cs.Properties.VariableNames)
     landscape.capacity_pathway_dist = tabulate_pathways(cs(cap_only, :));
     landscape.strength_pathway_dist = tabulate_pathways(cs(str_only, :));
@@ -157,7 +116,7 @@ if ismember('Pathway', cs.Properties.VariableNames)
     end
 end
 
-%% 5. CellPhoneDB coverage
+% 5. CellPhoneDB coverage
 if nargin >= 3 && isstruct(cellphonedb) && isfield(cellphonedb, 'interactions')
     n_cpdb = height(cellphonedb.interactions);
     landscape.n_cpdb_pairs    = n_cpdb;
@@ -167,7 +126,7 @@ if nargin >= 3 && isstruct(cellphonedb) && isfield(cellphonedb, 'interactions')
         n, 100*landscape.coverage_fraction);
 end
 
-%% Summary line (for abstract drafting)
+% Summary line
 fprintf('  --- ABSTRACT CANDIDATE ---\n');
 fprintf('  "We find that %.0f%% of co-expressed ligand-receptor pairs ', 100*zero_frac);
 fprintf('transmit zero\n   measurable information (I(X;Y)=0, FDR>0.05 by KSG permutation\n');

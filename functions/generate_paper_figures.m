@@ -3,43 +3,13 @@ function generate_paper_figures(condition_network, condition_specific, ...
     landscape, config)
 % GENERATE_PAPER_FIGURES  Publication-quality figures for the NEUROSCOPE paper.
 %
-% Each figure panel corresponds to a specific claim in the manuscript.
-% Figures are saved as PDF (vector) and PNG (300 dpi) to results/paper_figures/.
+% Panels correspond to specific manuscript claims. Saved as PDF (vector)
+% and PNG (300 dpi) to results/paper_figures/.
 %
-% FIGURE PANELS GENERATED:
-%
-%   Fig 1A — Capacity distribution (histogram)
-%            CLAIM: most co-expressed L-R pairs have capacity ≈ 0
-%
-%   Fig 1B — Capacity vs co-expression scatter
-%            CLAIM: low Spearman r shows capacity is a different ranking
-%
-%   Fig 1C — 2×2 enrichment bar chart
-%            CLAIM: capacity-only subset is missed by all existing tools
-%
-%   Fig 2A — Channel type composition (pie/bar)
-%            CLAIM: HighCapacity_Broadcast channels are the novel finding
-%
-%   Fig 2B — Pathway distribution per channel type
-%            CLAIM: capacity-only channels are pathway-distinct
-%
-%   Fig 3A — Communication states vs transcriptomic clusters (heatmap)
-%            CLAIM: ARI < threshold means communication ≠ transcriptome
-%
-%   Fig 3B — Communication Divergence Score (CDS) distribution
-%            CLAIM: a population of high-CDS cells exists
-%
-%   Fig 4A — Causal validation: IV F-statistic distribution
-%            CLAIM: donor instrument is strong (F > 10 for validated pairs)
-%
-%   Fig 4B — Capacity in causally validated vs non-validated interactions
-%            CLAIM: causally validated pairs have higher capacity
-%
-%   Fig 5A — NMF program loadings heatmap
-%            CLAIM: co-regulated communication programs exist
-%
-%   Fig 5B — Program cluster-pair participation bubble chart
-%            CLAIM: programs span multiple cell types (not cluster-specific)
+% Usage:
+%   generate_paper_figures(condition_network, condition_specific, ...
+%       identity_results, causal_results, comm_programs, cell_comm_profiles, ...
+%       landscape, config)
 
 fprintf('Generating publication figures...\n\n');
 
@@ -49,28 +19,22 @@ if ~exist(out_dir, 'dir'), mkdir(out_dir); end
 cs  = condition_specific;
 net = condition_network;
 
-%% =========================================================================
-%% Figure 1 — The I≈0 result  (Core Claim Figure)
-%% =========================================================================
-
 fig1 = figure('Name','Fig1_Information_Landscape', ...
     'Position',[100 100 1200 400], 'Color','w');
 
-%--- 1A: Capacity histogram ---
 ax1 = subplot(1,3,1, 'Parent', fig1);
 if ~isempty(cs) && ismember('CondCapacity', cs.Properties.VariableNames)
     cap = cs.CondCapacity;
     fdr_cut = 0.05;
     sig_cap = cs.FDRCapacity < fdr_cut;
 
-    % Histogram coloured by significance
     edges = linspace(0, max(max(cap)+0.01, 1), 30);
     n_nonsig = histcounts(cap(~sig_cap), edges);
     n_sig    = histcounts(cap(sig_cap),  edges);
 
     b = bar(ax1, edges(1:end-1), [n_nonsig(:), n_sig(:)], 'stacked', 'BarWidth', 1);
-    b(1).FaceColor = [0.75 0.75 0.75];  % grey: I≈0
-    b(2).FaceColor = [0.18 0.45 0.70];  % blue: significant
+    b(1).FaceColor = [0.75 0.75 0.75];
+    b(2).FaceColor = [0.18 0.45 0.70];
     b(1).EdgeColor = 'none';
     b(2).EdgeColor = 'none';
 
@@ -88,7 +52,6 @@ if ~isempty(cs) && ismember('CondCapacity', cs.Properties.VariableNames)
     set(ax1, 'Box', 'off', 'TickDir', 'out', 'FontSize', 10);
 end
 
-%--- 1B: Capacity vs strength scatter ---
 ax2 = subplot(1,3,2, 'Parent', fig1);
 if ~isempty(cs) && ismember('CondCapacity', cs.Properties.VariableNames) && ...
    ismember('CondStrength', cs.Properties.VariableNames)
@@ -101,7 +64,7 @@ if ~isempty(cs) && ismember('CondCapacity', cs.Properties.VariableNames) && ...
     hold(ax2, 'on');
     scatter(ax2, str(sig),  cap(sig),  20, [0.18 0.45 0.70], 'filled', 'MarkerFaceAlpha', 0.8);
 
-    % Rank correlation
+    % Rank correlation on tiedranks to compute Spearman via Pearson
     r = corr(tiedrank(cap), tiedrank(str), 'type', 'Pearson');
     text(ax2, min(str)+0.01*(max(str)-min(str)), max(cap)*0.9, ...
         sprintf('Spearman r = %.2f', r), 'FontSize', 10);
@@ -114,7 +77,6 @@ if ~isempty(cs) && ismember('CondCapacity', cs.Properties.VariableNames) && ...
     hold(ax2, 'off');
 end
 
-%--- 1C: 2×2 bar chart ---
 ax3 = subplot(1,3,3, 'Parent', fig1);
 if ~isempty(cs) && ismember('FDRCapacity', cs.Properties.VariableNames)
     cap_sig = cs.FDRCapacity < fdr_cut;
@@ -126,10 +88,10 @@ if ~isempty(cs) && ismember('FDRCapacity', cs.Properties.VariableNames)
               sum(~cap_sig & str_sig), sum(~cap_sig & ~str_sig)];
     pcts   = 100 * counts / n_total;
 
-    colors = [0.30 0.60 0.30;   % green: both
-              0.18 0.45 0.70;   % blue:  capacity only
-              0.80 0.50 0.10;   % orange: strength only
-              0.75 0.75 0.75];  % grey: neither
+    colors = [0.30 0.60 0.30;
+              0.18 0.45 0.70;
+              0.80 0.50 0.10;
+              0.75 0.75 0.75];
 
     bh = bar(ax3, 1:4, pcts, 'FaceColor', 'flat');
     for i = 1:4
@@ -153,14 +115,9 @@ end
 
 savefig_both(fig1, out_dir, 'Fig1_information_landscape');
 
-%% =========================================================================
-%% Figure 2 — Channel type and pathway analysis
-%% =========================================================================
-
 fig2 = figure('Name','Fig2_Channel_Types', ...
     'Position',[100 100 1000 400], 'Color','w');
 
-%--- 2A: Channel type bar ---
 ax4 = subplot(1,2,1, 'Parent', fig2);
 if ~isempty(cs) && ismember('ChannelType', cs.Properties.VariableNames)
     types  = {'HighCapacity_Broadcast','HighCapacity_Selective', ...
@@ -179,7 +136,6 @@ if ~isempty(cs) && ismember('ChannelType', cs.Properties.VariableNames)
     title(ax4, 'A   Channel type composition', 'FontSize', 12, 'FontWeight', 'bold');
 end
 
-%--- 2B: Top pathways (capacity-only vs both) ---
 ax5 = subplot(1,2,2, 'Parent', fig2);
 if ~isempty(cs) && ismember('Pathway', cs.Properties.VariableNames) && ...
    ismember('FDRCapacity', cs.Properties.VariableNames)
@@ -191,13 +147,11 @@ if ~isempty(cs) && ismember('Pathway', cs.Properties.VariableNames) && ...
     n_cap = cellfun(@(p) sum(strcmp(cs.Pathway(cap_only_mask), p)), pways);
     n_bth = cellfun(@(p) sum(strcmp(cs.Pathway(both_mask_p),  p)), pways);
 
-    % Keep pathways with at least 1 hit
     has_hit = n_cap > 0 | n_bth > 0;
     pways   = pways(has_hit);
     n_cap   = n_cap(has_hit);
     n_bth   = n_bth(has_hit);
 
-    % Sort by capacity-only count
     [~, ord] = sort(n_cap, 'descend');
     top_n    = min(8, length(pways));
     pways    = pways(ord(1:top_n));
@@ -205,8 +159,8 @@ if ~isempty(cs) && ismember('Pathway', cs.Properties.VariableNames) && ...
     n_bth    = n_bth(ord(1:top_n));
 
     bh5 = barh(ax5, 1:top_n, [n_cap(:), n_bth(:)]);
-    bh5(1).FaceColor = [0.18 0.45 0.70];  % blue: capacity-only
-    bh5(2).FaceColor = [0.30 0.60 0.30];  % green: both
+    bh5(1).FaceColor = [0.18 0.45 0.70];
+    bh5(2).FaceColor = [0.30 0.60 0.30];
     bh5(1).EdgeColor = 'none';
     bh5(2).EdgeColor = 'none';
     set(ax5, 'YTickLabel', pways, 'YTick', 1:top_n, 'FontSize', 9, ...
@@ -219,21 +173,15 @@ end
 
 savefig_both(fig2, out_dir, 'Fig2_channel_types');
 
-%% =========================================================================
-%% Figure 3 — Communication identity
-%% =========================================================================
-
 if isstruct(identity_results) && isfield(identity_results, 'ari') && ...
    ~isnan(identity_results.ari)
 
     fig3 = figure('Name','Fig3_Communication_Identity', ...
         'Position',[100 100 1000 400], 'Color','w');
 
-    %--- 3A: Contingency heatmap ---
     ax6 = subplot(1,2,1, 'Parent', fig3);
     C = identity_results.contingency;
     if ~isempty(C) && numel(C) > 1
-        % Normalise by column (transcriptomic cluster size)
         col_sums = sum(C, 1);
         C_norm   = C ./ max(col_sums, 1);
 
@@ -247,7 +195,7 @@ if isstruct(identity_results) && isfield(identity_results, 'ari') && ...
             'FontSize', 12, 'FontWeight', 'bold');
         set(ax6, 'FontSize', 9);
 
-        % Mark diagonal to show ideal alignment
+        % Diagonal boxes show ideal alignment between comm states and clusters
         hold(ax6,'on');
         dim = min(size(C_norm));
         for d = 1:dim
@@ -257,7 +205,6 @@ if isstruct(identity_results) && isfield(identity_results, 'ari') && ...
         hold(ax6,'off');
     end
 
-    %--- 3B: CDS distribution ---
     ax7 = subplot(1,2,2, 'Parent', fig3);
     cds = identity_results.divergence;
     if ~isempty(cds)
@@ -278,10 +225,6 @@ if isstruct(identity_results) && isfield(identity_results, 'ari') && ...
     savefig_both(fig3, out_dir, 'Fig3_communication_identity');
 end
 
-%% =========================================================================
-%% Figure 4 — Causal validation
-%% =========================================================================
-
 if isstruct(causal_results) && isfield(causal_results, 'table') && ...
    istable(causal_results.table) && height(causal_results.table) > 0
 
@@ -289,7 +232,6 @@ if isstruct(causal_results) && isfield(causal_results, 'table') && ...
         'Position',[100 100 1000 400], 'Color','w');
     ct = causal_results.table;
 
-    %--- 4A: F-statistic distribution ---
     ax8 = subplot(1,2,1, 'Parent', fig4);
     if ismember('FStatistic', ct.Properties.VariableNames)
         fstat = ct.FStatistic;
@@ -306,7 +248,6 @@ if isstruct(causal_results) && isfield(causal_results, 'table') && ...
         set(ax8, 'Box','off','TickDir','out','FontSize',10);
     end
 
-    %--- 4B: Capacity in causal vs non-causal ---
     ax9 = subplot(1,2,2, 'Parent', fig4);
     if ismember('Causal', ct.Properties.VariableNames) && ...
        ismember('CondCapacity', ct.Properties.VariableNames)
@@ -330,7 +271,6 @@ if isstruct(causal_results) && isfield(causal_results, 'table') && ...
         ylabel(ax9, 'Channel capacity (bits)', 'FontSize', 11);
         title(ax9, 'B   Capacity by causal status', 'FontSize', 12, 'FontWeight', 'bold');
 
-        % Wilcoxon test annotation
         if numel(causal_cap)>3 && numel(noncausal_cap)>3
             p_wrs = ranksum(causal_cap, noncausal_cap);
             text(ax9, 1.5, max([causal_cap; noncausal_cap])*1.05, ...
@@ -341,10 +281,6 @@ if isstruct(causal_results) && isfield(causal_results, 'table') && ...
     savefig_both(fig4, out_dir, 'Fig4_causal_validation');
 end
 
-%% =========================================================================
-%% Figure 5 — NMF communication programs
-%% =========================================================================
-
 if isstruct(comm_programs) && isfield(comm_programs, 'rank') && ...
    comm_programs.rank > 0 && ...
    isfield(comm_programs, 'W') && ~isempty(comm_programs.W)
@@ -352,12 +288,9 @@ if isstruct(comm_programs) && isfield(comm_programs, 'rank') && ...
     fig5 = figure('Name','Fig5_NMF_Programs', ...
         'Position',[100 100 1000 420], 'Color','w');
 
-    %--- 5A: Program loadings heatmap (L-R × programs) ---
     ax10 = subplot(1,2,1, 'Parent', fig5);
     W = comm_programs.W;
-    % Normalise each program to [0,1]
     W_norm = W ./ (max(W,[],1) + 1e-10);
-    % Show top 20 L-R pairs by max loading
     [~, top_idx] = sort(max(W_norm,[],2), 'descend');
     top_idx = top_idx(1:min(20, length(top_idx)));
     imagesc(ax10, W_norm(top_idx,:)');
@@ -380,7 +313,6 @@ if isstruct(comm_programs) && isfield(comm_programs, 'rank') && ...
         end
     end
 
-    %--- 5B: Program purity bar ---
     ax11 = subplot(1,2,2, 'Parent', fig5);
     if isfield(comm_programs, 'program_purity') && ...
        ~isempty(comm_programs.program_purity)
@@ -404,12 +336,8 @@ fprintf('Paper figures saved to: %s\n\n', out_dir);
 end
 
 
-%% =========================================================================
-%% Local helpers
-%% =========================================================================
-
 function savefig_both(fig, out_dir, name)
-% Save as PDF (vector) and PNG (300 dpi).
+% Save figure as PDF (vector) and PNG (300 dpi).
 pdf_path = fullfile(out_dir, [name '.pdf']);
 png_path = fullfile(out_dir, [name '.png']);
 try

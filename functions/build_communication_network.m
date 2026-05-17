@@ -2,58 +2,22 @@ function network = build_communication_network(expr_matrix, genes_table, cluster
 % BUILD_COMMUNICATION_NETWORK  Construct a weighted directed ligand-receptor
 %   communication network from single-cell expression data.
 %
-% Pipeline overview
-% -----------------
-%   1. Cluster mean expression is computed (subsampled at ≤500 cells/cluster
-%      for scalability). Log1p transformation normalizes count skew.
-%   2. Gaussian Process (GP) smoothing is applied across the cluster mean
-%      matrix to reduce cluster-level noise while preserving signal gradients.
-%   3. Gene expression specificity is computed per gene using Shannon entropy
-%      across cluster means. Genes expressed exclusively in a few clusters
-%      receive high specificity scores; ubiquitous genes receive low scores.
-%   4. For each L-R pair and each directed cluster-to-cluster edge, the
-%      interaction strength is:
-%         0.40 × geometric_mean(lig_expr, rec_expr)
-%       + 0.20 × confidence × geometric_mean
-%       + 0.25 × spatial_weight × geometric_mean
-%       + 0.15 × specificity_weight × geometric_mean
-%      where specificity_weight = sqrt(ligand_specificity × receptor_specificity).
-%   5. Significance is assessed by cell-label permutation testing (200 shuffles
-%      per pair for high-priority candidates). Permutation p-values are
-%      corrected by Benjamini-Hochberg FDR.
-%   6. Mutual information between ligand and receptor expression is estimated
-%      via the Spearman copula approximation:
-%         MI ≈ −0.5 × log(1 − ρ²)
-%      where ρ is the Spearman rank correlation. This is more robust to
-%      zero-inflation than the Pearson-based Gaussian MI formula.
-%      Reference: Liu et al. (2012) Ann. Appl. Stat. 6:1271-1298.
-%
 % Usage:
 %   network = build_communication_network(expr_matrix, genes_table, clusters_table, cellphonedb, dataset_name)
 %
 % Inputs:
-%   expr_matrix    - [cells × genes] sparse or dense expression matrix.
-%                    Raw or normalized counts; log1p applied internally.
-%   genes_table    - Table with a 'gene_name' column, or a cell array of
-%                    gene symbols. Must match expr_matrix column count.
-%   clusters_table - Table with a 'Cluster' column (numeric IDs, 1-based).
-%   cellphonedb    - CellPhoneDB database struct used to obtain L-R pairs, or
-%                    an {N×2} cell array of [ligand, receptor] pairs directly.
-%   dataset_name   - String label used in progress messages.
+%   expr_matrix    - [cells × genes] sparse or dense expression matrix (raw/normalized counts)
+%   genes_table    - Table with 'gene_name' column, or cell array of gene symbols
+%   clusters_table - Table with 'Cluster' column (numeric IDs, 1-based)
+%   cellphonedb    - CellPhoneDB struct or {N×2} cell array of [ligand, receptor] pairs
+%   dataset_name   - String label used in progress messages
 %
 % Outputs:
-%   network.ligands          - {N×1} ligand gene symbols
-%   network.receptors        - {N×1} receptor gene symbols
-%   network.weights          - [N×1] interaction strength scores
-%   network.source_clusters  - [N×1] sending cluster IDs
-%   network.target_clusters  - [N×1] receiving cluster IDs
-%   network.mi_scores        - [N×1] Spearman copula MI values
-%   network.significance     - [N×1] BH-corrected p-values
-%   network.raw_strength     - [N×1] pre-smoothing geometric mean strengths
+%   network.ligands, .receptors, .weights, .source_clusters, .target_clusters,
+%   .mi_scores, .significance, .raw_strength, .channel_capacity, .ci_lower,
+%   .ci_upper, .mi_mode  — see field names for descriptions
 
 fprintf('Network construction: %s\n', dataset_name);
-
-%% Data preparation
 
 gene_names = genes_table.gene_name;
 cluster_ids = clusters_table.Cluster;
@@ -66,9 +30,7 @@ n_clusters = length(unique_clusters);
 n_cells = size(expr_matrix, 1);
 n_genes = length(gene_names);
 
-% Detect sample/donor IDs for cross-sample MI computation.
-% When present, MI is computed on per-sample mean vectors (truly paired).
-% When absent, we fall back to Spearman-based MI approximation and warn.
+% Look for donor/sample column to enable cross-sample KSG MI.
 sample_id_col = '';
 for cand = {'donor_id', 'sample_id', 'donor', 'sample', 'SubjectID', 'individual'}
     if ismember(cand{1}, clusters_table.Properties.VariableNames)
@@ -88,23 +50,16 @@ if ~isempty(sample_id_col)
     n_samples = length(unique_samples);
     fprintf('  Cells: %d | Genes: %d | Clusters: %d | Samples: %d\n', ...
             n_cells, n_genes, n_clusters, n_samples);
-    fprintf('  MI mode: cross-sample (paired per-sample means) — scientifically valid\n\n');
+    fprintf('  MI mode: cross-sample (paired per-sample means)\n\n');
 else
     sample_ids   = [];
     n_samples    = 0;
     unique_samples = {};
     fprintf('  Cells: %d | Genes: %d | Clusters: %d\n', n_cells, n_genes, n_clusters);
-    fprintf('  WARNING: no donor_id/sample_id column found in metadata.\n');
-    fprintf('  Falling back to Spearman-based MI approximation.\n');
-    fprintf('  For publication, add a donor_id column to enable cross-sample KSG MI.\n\n');
+    fprintf('  WARNING: no donor_id/sample_id column found. Falling back to Spearman MI.\n\n');
 end
 
-% For large datasets, subsample within clusters to keep runtime manageable.
-% This is a speed/accuracy tradeoff - smaller MAX_CELLS means faster but less
-% accurate cluster means. 500 cells per cluster is sufficient in practice.
 MAX_CELLS_PER_CLUSTER = 500;
-
-%% Cluster mean expression
 
 fprintf('Computing cluster mean expression...\n');
 
@@ -140,12 +95,7 @@ for k = 1:n_clusters
     end
 end
 
-%% Gaussian Process smoothing over cluster means
-%
-% We use a squared-exponential kernel over the expression space to smooth
-% cluster means. This reduces noise from small clusters. sigma_gp controls
-% the smoothing bandwidth.
-
+% GP smoothing: squared-exponential kernel over expression space.
 fprintf('Applying GP smoothing (sigma=0.5)...\n');
 
 sigma_gp = 0.5;
@@ -165,17 +115,7 @@ end
 cluster_means = cluster_means_smooth;
 fprintf('  Smoothing complete\n');
 
-%% Gene expression specificity
-%
-% Quantifies how selectively each gene is expressed across clusters using
-% Shannon entropy. A gene expressed uniformly across all clusters has
-% maximum entropy (H = log2(n_clusters)) and specificity = 0. A gene
-% expressed in only one cluster has H = 0 and specificity = 1.
-%
-% Interactions between specifically-expressed genes are more likely to
-% represent biologically meaningful communication rather than background
-% expression of housekeeping genes.
-
+% Shannon entropy specificity: 1 = cluster-exclusive, 0 = ubiquitous.
 fprintf('Computing gene expression specificity...\n');
 
 gene_specificity = zeros(1, n_genes);
@@ -194,9 +134,7 @@ for g = 1:n_genes
     gene_specificity(g) = 1 - H / log2_n_clusters;
 end
 
-fprintf('  Mean gene specificity: %.3f (0=ubiquitous, 1=cluster-exclusive)\n', mean(gene_specificity));
-
-%% Load ligand-receptor pairs
+fprintf('  Mean gene specificity: %.3f\n', mean(gene_specificity));
 
 fprintf('Loading L-R database...\n');
 
@@ -210,18 +148,14 @@ end
 n_lr_pairs = size(lr_pairs, 1);
 fprintf('  L-R pairs to test: %d\n', n_lr_pairs);
 
-%% Cluster proximity via expression correlation
-
 fprintf('Computing cluster proximity...\n');
 
 cluster_similarity = corr(cluster_means');
 cluster_similarity = max(0, cluster_similarity);
 
-% Normalized graph Laplacian-based diffusion for 1 step
+% One-step normalized graph Laplacian diffusion.
 D = diag(sum(cluster_similarity, 2));
 diffusion_matrix = eye(n_clusters) + 0.3 * (D \ (cluster_similarity - D));
-
-%% Interaction testing
 
 fprintf('Testing interactions (%d pairs x %d cluster pairs)...\n', ...
     n_lr_pairs, n_clusters^2);
@@ -233,7 +167,7 @@ network.source_clusters   = [];
 network.target_clusters   = [];
 network.mi_scores         = [];
 network.raw_strength      = [];
-network.channel_capacity  = [];   % normalized MI I(X;Y)/H(X) ∈ [0,1]; primary score
+network.channel_capacity  = [];   % normalized MI I(X;Y)/H(X) in [0,1]; primary score
 network.ci_lower          = [];   % bootstrap 2.5th percentile of channel_capacity
 network.ci_upper          = [];   % bootstrap 97.5th percentile of channel_capacity
 network.mi_mode           = {};   % 'ksg_cross_sample' or 'spearman_copula'
@@ -244,37 +178,12 @@ interaction_count = 0;
 tested_count = 0;
 progress_interval = max(1, floor(n_lr_pairs / 20));
 
-% Pre-build gene lookup for speed
 gene_idx_map = containers.Map(gene_names, 1:length(gene_names));
 
-% ── Channel capacity scoring ──────────────────────────────────────────────────
-% NEUROSCOPE departs from all existing tools here. Rather than scoring
-% interactions by sqrt(mean_ligand × mean_receptor) — which measures
-% co-expression, not communication — we score by the KSG mutual information
-% between the ligand expression distribution in sender cells and the receptor
-% expression distribution in receiver cells.
-%
-% I(Ligand ; Receptor) > 0  ⟺  knowing the sender's ligand level tells you
-% something about the receiver's receptor level.  This is a necessary
-% condition for actual information transmission through the channel.
-%
-% The geometric mean is retained as a secondary prior (expression must be
-% detectable before MI is meaningful), but it is no longer the primary score.
-%
-% Scoring formula:
-%   weight = 0.55 × channel_capacity
-%           + 0.20 × expression_prior
-%           + 0.15 × specificity_weight
-%           + 0.10 × spatial_weight
-%
-% where channel_capacity ∈ [0,1] is the KSG MI normalized by H(ligand).
-% Only interactions with channel_capacity > capacity_threshold are retained.
-% This eliminates the majority of spurious co-expression interactions that
-% existing tools report.
-%
-% Reference: Kraskov, Stögbauer & Grassberger (2004) Phys Rev E 69:066138.
-
-capacity_threshold = 0.01;   % minimum norm. MI to call an interaction
+% Primary score is channel capacity (KSG MI / H(ligand)), not geometric mean.
+% This tests whether sender ligand variation predicts receiver receptor variation,
+% rather than simply whether both genes are co-expressed.
+capacity_threshold = 0.01;   % minimum normalized MI to call an interaction
 MIN_SAMPLES_KSG    = 10;     % below this, Spearman fallback is used
 
 for lr_idx = 1:n_lr_pairs
@@ -293,7 +202,6 @@ for lr_idx = 1:n_lr_pairs
     lig_idx = gene_idx_map(ligand);
     rec_idx = gene_idx_map(receptor);
 
-    % Fast pre-filter: skip if neither gene is expressed at cluster level
     if max(cluster_means(:, lig_idx)) < expression_threshold || ...
        max(cluster_means(:, rec_idx)) < expression_threshold
         continue;
@@ -319,32 +227,10 @@ for lr_idx = 1:n_lr_pairs
 
             tested_count = tested_count + 1;
 
-            % ── MI computation ─────────────────────────────────────────────────
-            %
-            % SCIENTIFIC RATIONALE FOR PER-SAMPLE AGGREGATION
-            % ------------------------------------------------
-            % KSG MI requires *paired* (X_i, Y_i) observations — i.e., both
-            % measurements must come from the same biological unit. Sender cells
-            % and receiver cells are distinct populations: they cannot be paired
-            % at the single-cell level. Using random single-cell vectors would
-            % give MI ≈ 0 for everything because the pairing is meaningless.
-            %
-            % The correct unit of observation is the *donor/sample*: for each
-            % donor, we compute the mean ligand expression in sender cells of
-            % that donor, and the mean receptor expression in receiver cells of
-            % that donor. This gives a vector of length n_samples where X_i and
-            % Y_i are genuinely from the same biological context. MI(X;Y) across
-            % donors then measures whether inter-individual variation in the
-            % ligand predicts inter-individual variation in the receiver —
-            % exactly the question "does this channel transmit information?"
-            %
-            % When no donor_id column exists we fall back to the Spearman copula
-            % MI approximation: MI ≈ -0.5·log(1 - ρ²) computed on within-cluster
-            % cell expression. This is an approximation but avoids the unpaired
-            % flaw; it is flagged clearly in outputs.
-
+            % Cross-sample KSG MI: X_i = mean ligand in sender cells from donor i,
+            % Y_i = mean receptor in receiver cells from donor i. This is a valid
+            % pairing; single-cell pairings would give MI ≈ 0 (unpaired populations).
             if n_samples >= MIN_SAMPLES_KSG
-                % ── Cross-sample KSG MI (primary, publication-quality) ─────────
                 X_samp = zeros(n_samples, 1);
                 Y_samp = zeros(n_samples, 1);
                 for s = 1:n_samples
@@ -358,8 +244,7 @@ for lr_idx = 1:n_lr_pairs
                         Y_samp(s) = mean(full(expr_matrix(tgt_in_s, rec_idx)));
                     end
                 end
-                % Drop samples where either cluster had no cells
-                valid = (X_samp > 0) | (Y_samp > 0);  % keep samples with any expression
+                valid = (X_samp > 0) | (Y_samp > 0);
                 X_samp = X_samp(valid);
                 Y_samp = Y_samp(valid);
 
@@ -367,31 +252,25 @@ for lr_idx = 1:n_lr_pairs
                     X_samp, Y_samp, 'n_perm', 0, 'n_bootstrap', 500);
 
             else
-                % ── Spearman copula MI fallback (single-dataset mode) ──────────
-                % MI ≈ -0.5·log(1 - ρ²): Gaussian copula approximation.
-                % Computed on the mean gene expression profile across clusters
-                % (one point per cluster per gene), which IS a valid pairing:
-                % both X and Y are properties of the same cluster context.
+                % Spearman copula fallback: MI ≈ -0.5·log(1-ρ²), computed on
+                % cluster-mean vectors (valid pairing: both properties of the same cluster).
                 X_vec = cluster_means(:, lig_idx);
                 Y_vec = cluster_means(:, rec_idx);
                 rho = corr(X_vec, Y_vec, 'type', 'Spearman');
-                rho = max(-0.9999, min(0.9999, rho));   % clamp for log stability
-                mi_score = max(0, -0.5 * log(1 - rho^2) / log(2));  % bits
-                % Normalize by H(X): approximate H ≈ 0.5·log(2πe·var(X))
+                rho = max(-0.9999, min(0.9999, rho));
+                mi_score = max(0, -0.5 * log(1 - rho^2) / log(2));
                 H_x = max(1e-10, 0.5 * log(2*pi*exp(1)*var(X_vec) + 1e-12) / log(2));
                 capacity = max(0, min(1, mi_score / H_x));
-                ci_lower = NaN;   % CIs not available for Spearman copula fallback
+                ci_lower = NaN;
                 ci_upper = NaN;
             end
 
-            % ── Filter by minimum channel capacity ────────────────────────────
             if capacity < capacity_threshold
                 continue;
             end
 
-            % ── Composite score (capacity-led) ────────────────────────────────
             geometric_mean  = sqrt(lig_expr * rec_expr);
-            expression_prior = geometric_mean / (geometric_mean + 0.5);   % sigmoid prior ∈ [0,1]
+            expression_prior = geometric_mean / (geometric_mean + 0.5);   % sigmoid in [0,1]
             spatial_weight  = diffusion_matrix(src, tgt);
 
             strength = 0.55 * capacity ...
@@ -430,32 +309,26 @@ network.channel_capacity = network.channel_capacity(:);
 network.ci_lower         = network.ci_lower(:);
 network.ci_upper         = network.ci_upper(:);
 network.mi_mode          = network.mi_mode(:);
-network.n_samples_used   = n_samples;   % record for provenance
+network.n_samples_used   = n_samples;
 
 fprintf('  Tested: %d | Detected: %d (%.1f%%)\n', ...
     tested_count, interaction_count, 100*interaction_count/max(1,tested_count));
 if n_samples >= MIN_SAMPLES_KSG
-    fprintf('  MI method: KSG cross-sample (n_samples=%d) — publication quality\n', n_samples);
+    fprintf('  MI method: KSG cross-sample (n_samples=%d)\n', n_samples);
 else
     fprintf('  MI method: Spearman copula fallback — add donor_id for KSG MI\n');
 end
 if ~isempty(network.channel_capacity)
-    fprintf('  Mean norm. MI: %.4f  (>0 = information transmitted across samples)\n', ...
-        mean(network.channel_capacity));
+    fprintf('  Mean norm. MI: %.4f\n', mean(network.channel_capacity));
 end
-
-%% Permutation testing for significance
 
 fprintf('Permutation testing (%d permutations)...\n', 50);
 
-% 50 permutations gives 2% p-value resolution, sufficient for p < 0.05 screening.
-% Increase n_permutations for finer resolution at the cost of runtime.
 n_permutations = 50;
 n_interactions = length(network.weights);
 
 p_value_counters = zeros(n_interactions, 1);
 
-% Pre-cache gene indices per unique L-R pair
 gene_idx_cache = containers.Map();
 for i = 1:n_interactions
     key = sprintf('%s_%s', network.ligands{i}, network.receptors{i});
@@ -464,8 +337,6 @@ for i = 1:n_interactions
     end
 end
 
-% For large networks, subsample interactions for permutation to keep runtime
-% manageable. Non-sampled interactions receive the population mean p-value.
 max_perm_interactions = min(100000, n_interactions);
 if n_interactions > max_perm_interactions
     perm_sample_idx = randsample(n_interactions, max_perm_interactions);
@@ -485,7 +356,6 @@ if n_interactions == 0
     return;
 end
 
-% Map from real cluster ID → row index in perm_cluster_means (1:n_clusters)
 cluster_id_to_row = containers.Map(num2cell(double(unique_clusters(:)')), ...
                                    num2cell(1:n_clusters));
 
@@ -535,10 +405,7 @@ end
 
 network.significance = p_value_counters / n_permutations;
 
-% Interactions not included in the permutation sample were never tested.
-% Assigning them a p-value would be scientifically dishonest.  Instead,
-% set them to 1.0 (maximum uncertainty / not significant) so they are
-% conservatively excluded from downstream analyses.
+% Non-sampled interactions are conservatively assigned p=1 (not tested).
 if length(perm_sample_idx) < n_interactions
     non_sampled = setdiff(1:n_interactions, perm_sample_idx);
     network.significance(non_sampled) = 1.0;
@@ -549,8 +416,6 @@ end
 n_significant = sum(network.significance < 0.05);
 fprintf('  Significant (p<0.05): %d/%d (%.1f%%)\n', ...
     n_significant, n_interactions, 100*n_significant/n_interactions);
-
-%% Network topology
 
 fprintf('Computing topology...\n');
 
@@ -582,7 +447,6 @@ if n_interactions <= 100000
     hub_threshold = prctile(total_degree, 90);
     network.topology_metrics.top_hubs = all_genes(total_degree > hub_threshold);
 else
-    % Network too large for dense adjacency matrix - use degree estimates
     network.topology_metrics.avg_degree = 2 * n_interactions / n_nodes;
     network.topology_metrics.n_components = 1;
     network.topology_metrics.top_hubs = all_genes(1:min(10, n_nodes));
@@ -595,18 +459,9 @@ fprintf('  Interactions: %d | Significant: %d | Ligands: %d | Receptors: %d\n', 
 
 end
 
-%% Local helper functions
-
 function mi = compute_gaussian_mi(X, Y)
-% Computes mutual information using the Gaussian copula approximation:
-%   MI(X,Y) ≈ -0.5 * log(1 - rho^2)
-% where rho is the Spearman rank correlation. The Spearman copula applies
-% a monotone marginal transformation to each variable before computing
-% the Gaussian MI, making the approximation more appropriate for the
-% heavy-tailed, zero-inflated distribution of scRNA-seq counts than
-% the Pearson-based version. Rank ordering of MI values is preserved.
-%
-% Reference: Liu et al. (2012) JMLR 13:1297-1334 (copula MI estimator).
+% Spearman copula MI: MI(X,Y) ≈ -0.5*log(1-rho^2). More robust than Pearson
+% version for zero-inflated scRNA-seq counts.
 
 n_x = length(X);
 n_y = length(Y);

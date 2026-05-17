@@ -1,105 +1,30 @@
 function causal_results = infer_causal_interactions(condition_specific, expr_matrix, gene_names, cell_metadata, network)
-% INFER_CAUSAL_INTERACTIONS  First causal inference framework for cell-cell
-%   communication. Distinguishes true ligand→receptor signalling from
-%   spurious co-expression using donor identity as a natural instrumental
-%   variable (IV), analogous to Mendelian Randomization in human genetics.
+% INFER_CAUSAL_INTERACTIONS  2SLS instrumental variable causal inference for
+%   cell-cell communication. Uses donor_id as a natural instrument (analogous
+%   to Mendelian Randomization) to distinguish true L→R signalling from
+%   spurious co-expression. Validates: first-stage F > 10, second-stage p < 0.05.
 %
-% Scientific novelty
-% ------------------
-% Every existing cell-cell communication tool (CellChat, NicheNet,
-% CellPhoneDB, LIANA) infers interactions from co-expression: if ligand L
-% and receptor R are expressed in neighbouring clusters, an interaction is
-% called. Co-expression is necessary but NOT sufficient for causation; it
-% arises equally from genuine L→R signalling, shared transcription factors,
-% linked genomic loci, or technical batch effects.
+% causal_results = infer_causal_interactions(condition_specific, expr_matrix,
+%                     gene_names, cell_metadata, network)
 %
-% This function applies Two-Stage Least Squares (2SLS) instrumental variable
-% regression — the gold standard causal method in epidemiology — to
-% cell-cell communication data. The instrument (Z) is donor identity, which
-% satisfies the two IV assumptions:
-%   (1) Relevance  : Donor genetic background causally affects ligand
-%       expression levels (first-stage F-statistic > 10 confirms this).
-%   (2) Exclusion  : Donor identity affects receptor expression ONLY through
-%       the ligand (it does not directly regulate the receptor gene in
-%       target cells, conditional on cell type).
+% Inputs:
+%   condition_specific - Table with Ligand, Receptor columns
+%   expr_matrix        - [cells × genes] sparse or dense expression matrix
+%   gene_names         - cell array, string array, or table with 'gene_name'
+%   cell_metadata      - Table with cluster_id and optionally donor_id columns
+%   network            - Struct with .source_clusters, .target_clusters,
+%                        .ligands, .receptors
 %
-% The result is a causal effect estimate β: "if we force ligand expression
-% up by 1 unit in source cells, receptor expression changes by β units in
-% target cells, via the actual signalling pathway." This is fundamentally
-% different from the Pearson/Spearman correlations reported by all other
-% tools.
-%
-% Algorithm overview
-% ------------------
-%   1. Identify instrument variable Z:
-%      - Primary: donor_id from cell_metadata columns donor_id / donor /
-%        DonorID / sample_id / SampleID.
-%      - Fallback (single donor): cluster-quantile grouping within each
-%        source cluster (splits cells into low/mid/high ligand-expression
-%        tertiles — not a true exogenous instrument but provides a useful
-%        pseudo-causal estimate).
-%   2. For each unique L-R pair in condition_specific:
-%      a. Identify source cells (any source cluster for this pair from
-%         network.source_clusters) and target cells.
-%      b. Extract ligand expression X_lig (source cells) and receptor
-%         expression X_rec (target cells) from expr_matrix.
-%      c. Build one-hot instrument matrix Z_src for source cells.
-%      d. First stage: regress X_lig on Z_src → X̂_lig; compute F-stat.
-%      e. Second stage: regress X_rec on X̂_lig (using mean fitted values
-%         projected onto target cells) → β, SE, p-value via fitlm().
-%      f. Bootstrap 500 iterations (resample cells within each donor) to
-%         obtain 95% confidence intervals on β.
-%      g. Classify as causal if F ≥ 10 and p < 0.05.
-%   3. Compute aggregate causal enrichment statistics.
-%   4. Build causal sub-network.
-%   5. Export causal_interactions.csv.
-%
-% Usage
-% -----
-%   causal_results = infer_causal_interactions(condition_specific, expr_matrix, ...
-%                       gene_names, cell_metadata, network)
-%
-% Inputs
-% ------
-%   condition_specific - Table from identify_gbm_specific_interactions()
-%                        with columns: Ligand, Receptor (required).
-%   expr_matrix        - [cells × genes] sparse or dense expression matrix.
-%                        Raw or normalized counts. Sparse matrices are
-%                        handled efficiently: only required columns are
-%                        converted to full.
-%   gene_names         - Gene name list, any of:
-%                          • {n_genes×1} cell array of char/string
-%                          • string array (n_genes×1)
-%                          • table with a 'gene_name' column
-%   cell_metadata      - Table with one row per cell. Must contain a
-%                        cluster_id / Cluster column. Optionally contains
-%                        donor_id / donor / DonorID / sample_id / SampleID.
-%   network            - Communication network struct with fields:
-%                          .source_clusters  [N×1] sending cluster IDs
-%                          .target_clusters  [N×1] receiving cluster IDs
-%                          .ligands          {N×1} ligand gene symbols
-%                          .receptors        {N×1} receptor gene symbols
-%
-% Outputs
-% -------
-%   causal_results.causal_table       - Table: one row per L-R pair tested
-%       Columns: Ligand, Receptor, CausalEffect, CausalCI_lo, CausalCI_hi,
-%                InstrumentF, PValue, IsWeakInstrument, IsCausal,
-%                CorrelationalStrength
-%   causal_results.n_causal           - Number of causally validated pairs
-%   causal_results.n_tested           - Total pairs tested
-%   causal_results.causal_fraction    - Fraction validated
-%   causal_results.instrument_type    - 'donor' or 'cluster_quantile'
-%   causal_results.causal_network     - Sub-struct with only causal pairs
-%   causal_results.top_causal         - Top 5 by |CausalEffect|
-%
-% Files saved
-% -----------
-%   causal_interactions.csv  (results/ if exists, else current dir)
+% Outputs:
+%   causal_results.causal_table    - Per-pair results with CausalEffect, F, p
+%   causal_results.n_causal        - Causally validated pairs
+%   causal_results.instrument_type - 'donor' or 'cluster_quantile'
+%   causal_results.causal_network  - Sub-network of causal pairs only
+%   causal_results.top_causal      - Top 5 by |CausalEffect|
 
 fprintf('[Causal Inference] Starting causal inference for cell-cell communication...\n');
 
-%% ── 0. Output directory ──────────────────────────────────────────────────
+% Output directory
 
 out_dir = '';
 if exist('results', 'dir')
@@ -110,7 +35,7 @@ causal_results = struct();
 
 try
 
-%% ── 1. Input validation ──────────────────────────────────────────────────
+% Input validation
 
 if nargin < 5
     error('infer_causal_interactions: all 5 inputs are required.');
@@ -137,7 +62,7 @@ for fi = {'source_clusters','target_clusters','ligands','receptors'}
     end
 end
 
-%% ── 2. Normalise gene_names to cell array of chars ───────────────────────
+% Normalise gene_names
 
 fprintf('[Causal Inference] Parsing gene names...\n');
 
@@ -164,7 +89,7 @@ if numel(gene_names_cell) ~= n_genes
         numel(gene_names_cell), n_genes);
 end
 
-%% ── 3. Extract cluster IDs from cell_metadata ────────────────────────────
+% Extract cluster IDs
 
 fprintf('[Causal Inference] Extracting cluster IDs from cell_metadata...\n');
 
@@ -206,7 +131,7 @@ elseif iscell(raw_cluster_ids)
 end
 raw_cluster_ids = raw_cluster_ids(:);
 
-%% ── 4. Identify instrument variable ─────────────────────────────────────
+% Identify instrument variable
 
 fprintf('[Causal Inference] Identifying instrument variable...\n');
 
@@ -248,7 +173,7 @@ end
 
 causal_results.instrument_type = instrument_type;
 
-%% ── 5. Build L-R pair list ───────────────────────────────────────────────
+% Build unique L-R pair list
 
 fprintf('[Causal Inference] Building unique L-R pair list from condition_specific...\n');
 
@@ -275,7 +200,7 @@ net_src  = network.source_clusters(:);
 net_tgt  = network.target_clusters(:);
 net_sigs = strcat(net_ligs, '_', net_recs);
 
-%% ── 6. Correlational strength lookup ────────────────────────────────────
+% Correlational strength lookup
 
 has_weight = ismember('Weight', condition_specific.Properties.VariableNames);
 cs_weight_map = containers.Map('KeyType','char','ValueType','double');
@@ -285,7 +210,7 @@ if has_weight
     end
 end
 
-%% ── 7. Per-pair 2SLS causal inference ───────────────────────────────────
+% Per-pair 2SLS causal inference
 
 causal_effect_vec    = nan(n_pairs, 1);
 ci_lo_vec            = nan(n_pairs, 1);
@@ -310,7 +235,7 @@ for pi = 1:n_pairs
     end
 
     try
-        %% Find gene indices
+        % find gene indices
         lig_idx = find(strcmp(gene_names_cell, lig_i), 1);
         rec_idx = find(strcmp(gene_names_cell, rec_i), 1);
 
@@ -318,7 +243,7 @@ for pi = 1:n_pairs
             continue;   % gene not in expression matrix
         end
 
-        %% Identify source and target cells via network cluster membership
+        % identify source/target cells via network cluster membership
         net_mask_i = strcmp(net_sigs, sig_i);
         src_clusters_i = unique(net_src(net_mask_i));
         tgt_clusters_i = unique(net_tgt(net_mask_i));
@@ -339,7 +264,7 @@ for pi = 1:n_pairs
             continue;   % insufficient cells
         end
 
-        %% Extract expression (call full() only on needed slices)
+        % extract expression
         if issparse(expr_matrix)
             X_lig = full(expr_matrix(src_cell_idx, lig_idx));
             X_rec = full(expr_matrix(tgt_cell_idx, rec_idx));
@@ -364,7 +289,7 @@ for pi = 1:n_pairs
             corr_strength_vec(pi) = cs_weight_map(sig_i);
         end
 
-        %% Build instrument matrix Z for source cells
+        % build instrument matrix
         n_src = numel(src_cell_idx);
 
         if strcmp(instrument_type, 'donor')
@@ -372,13 +297,12 @@ for pi = 1:n_pairs
             Z_src = build_onehot(donor_src, unique_donors);
             k_donors = size(Z_src, 2);
         else
-            %% Cluster-quantile instrument: tertile of ligand expression
+            % cluster-quantile fallback instrument
             Z_src = build_quantile_instrument(X_lig, 3);
             k_donors = size(Z_src, 2);
         end
 
-        %% First stage: regress X_lig on Z_src
-        %  X̂_lig = Z * pinv(Z) * X_lig  (projection onto instrument space)
+        % first stage: regress X_lig on Z_src
         if size(Z_src, 1) < k_donors + 2
             continue;   % not enough observations for first stage
         end
@@ -392,12 +316,11 @@ for pi = 1:n_pairs
             Xhat_lig = mean(X_lig) * ones(n_src, 1);
         end
 
-        % R² of first stage
+        % R² and F-stat of first stage
         ss_res  = sum((X_lig - Xhat_lig).^2);
         ss_tot  = sum((X_lig - mean(X_lig)).^2);
         r2_fs   = max(0, 1 - ss_res / (ss_tot + eps));
 
-        % F-statistic: (R²/(k-1)) / ((1-R²)/(n-k))
         k_fs   = k_donors;       % number of instruments (excl intercept)
         n_fs   = n_src;
         if k_fs >= 1 && (n_fs - k_fs - 1) > 0
@@ -408,16 +331,13 @@ for pi = 1:n_pairs
         f_stat_vec(pi)  = F_stat;
         is_weak_vec(pi) = F_stat < 10;
 
-        %% Second stage: regress X_rec on X̂_lig
-        %  We use the mean fitted ligand value as the instrument signal
-        %  projected onto target cells (scalar summary per donor)
-        %  Then match to target cells by donor membership.
+        % second stage: regress X_rec on X̂_lig projected to target cells
 
         n_tgt = numel(tgt_cell_idx);
 
         if strcmp(instrument_type, 'donor')
             donor_tgt = donor_ids_all(tgt_cell_idx);
-            %% Per-donor mean fitted ligand
+            % per-donor mean fitted ligand
             fitted_per_donor = zeros(numel(unique_donors), 1);
             for di = 1:numel(unique_donors)
                 src_di_mask = strcmp(donor_src, unique_donors{di});
@@ -427,18 +347,16 @@ for pi = 1:n_pairs
                     fitted_per_donor(di) = mean(Xhat_lig);
                 end
             end
-            % Map fitted values to target cells
             Xhat_lig_tgt = zeros(n_tgt, 1);
             for di = 1:numel(unique_donors)
                 tgt_di_mask = strcmp(donor_tgt, unique_donors{di});
                 Xhat_lig_tgt(tgt_di_mask) = fitted_per_donor(di);
             end
         else
-            %% Cluster-quantile: use overall mean fitted ligand for all target cells
             Xhat_lig_tgt = mean(Xhat_lig) * ones(n_tgt, 1);
         end
 
-        %% fitlm: X_rec ~ Xhat_lig_tgt
+        % fitlm second stage
         if numel(unique(Xhat_lig_tgt)) < 2
             continue;   % degenerate instrument
         end
@@ -454,12 +372,12 @@ for pi = 1:n_pairs
         causal_effect_vec(pi) = beta_ss;
         p_val_vec(pi)         = p_val_ss;
 
-        %% Bootstrap 500 iterations for 95% CI
+        % bootstrap 95% CI
         boot_betas = nan(n_bootstrap, 1);
 
         if strcmp(instrument_type, 'donor')
             for bi = 1:n_bootstrap
-                %% Resample cells within each donor (block bootstrap)
+                % block bootstrap
                 boot_src_idx = block_bootstrap_idx(donor_src, unique_donors, n_src);
                 boot_tgt_idx = block_bootstrap_idx(donor_tgt, unique_donors, n_tgt);
 
@@ -472,7 +390,6 @@ for pi = 1:n_pairs
                     beta_b_fs  = Zb_aug \ Xlig_b;
                     Xhat_b     = Zb_aug * beta_b_fs;
 
-                    % Per-donor mean for target
                     donor_src_b = donor_src(boot_src_idx);
                     donor_tgt_b = donor_tgt(boot_tgt_idx);
                     fpd_b = zeros(numel(unique_donors), 1);
@@ -499,7 +416,7 @@ for pi = 1:n_pairs
                 end
             end
         else
-            %% Cluster-quantile bootstrap: resample cells with replacement
+            % cluster-quantile bootstrap
             for bi = 1:n_bootstrap
                 boot_src_i = randi(n_src, n_src, 1);
                 boot_tgt_i = randi(n_tgt, n_tgt, 1);
@@ -530,7 +447,7 @@ for pi = 1:n_pairs
             ci_hi_vec(pi) = beta_ss;
         end
 
-        %% Classification
+        % classify
         is_causal_vec(pi) = (~is_weak_vec(pi)) && (p_val_ss < 0.05);
 
     catch ME_pair
@@ -540,7 +457,7 @@ end
 
 fprintf('[Causal Inference] 2SLS complete. Assembling results...\n');
 
-%% ── 8. Assemble output table ─────────────────────────────────────────────
+% Assemble output table
 
 n_tested  = sum(~isnan(causal_effect_vec));
 n_causal  = sum(is_causal_vec);
@@ -569,7 +486,7 @@ causal_results.n_tested        = n_tested;
 causal_results.causal_fraction = causal_fraction;
 causal_results.instrument_type = instrument_type;
 
-%% ── 9. Causal sub-network ────────────────────────────────────────────────
+% Causal sub-network
 
 causal_mask_net = false(numel(net_ligs), 1);
 for pi = 1:n_pairs
@@ -588,7 +505,7 @@ if isfield(network, 'weights')
 end
 causal_results.causal_network = causal_network;
 
-%% ── 10. Top 5 causal pairs ───────────────────────────────────────────────
+% Top 5 causal pairs by |CausalEffect|
 
 causal_only = causal_table(causal_table.IsCausal, :);
 if ~isempty(causal_only)
@@ -599,7 +516,7 @@ else
     causal_results.top_causal = causal_only;
 end
 
-%% ── 11. Export CSV ───────────────────────────────────────────────────────
+% Export CSV
 
 try
     writetable(causal_table, [out_dir, 'causal_interactions.csv']);
@@ -608,7 +525,7 @@ catch me_csv
     fprintf('[Causal Inference] Warning: could not save causal_interactions.csv: %s\n', me_csv.message);
 end
 
-%% ── 12. Summary ──────────────────────────────────────────────────────────
+% Summary
 
 fprintf('\n[Causal Inference] ══ Summary ════════════════════════════════════\n');
 fprintf('[Causal Inference]   Instrument type       : %s\n', instrument_type);
@@ -636,13 +553,8 @@ end
 
 end   % main function
 
-%% ══════════════════════════════════════════════════════════════════════════
-%%  LOCAL HELPER FUNCTIONS
-%% ══════════════════════════════════════════════════════════════════════════
-
 function Z = build_onehot(labels, unique_labels)
-% BUILD_ONEHOT  One-hot encoding of labels against unique_labels list.
-% Returns [n × k] binary matrix (k = numel(unique_labels)).
+% One-hot encoding of labels; returns [n × k] binary matrix.
     n = numel(labels);
     k = numel(unique_labels);
     Z = zeros(n, k);
@@ -652,10 +564,7 @@ function Z = build_onehot(labels, unique_labels)
 end
 
 function Z = build_quantile_instrument(X, n_quantiles)
-% BUILD_QUANTILE_INSTRUMENT  Assign cells to quantile groups of X and
-% return a one-hot matrix. Used as fallback instrument when donor_id is
-% unavailable. Groups reflect natural variation in ligand expression levels
-% within the source cluster.
+% Fallback instrument: assign cells to quantile groups of X, return one-hot matrix.
     n = numel(X);
     edges = quantile(X, linspace(0, 1, n_quantiles + 1));
     edges(1)   = -Inf;
@@ -673,8 +582,7 @@ function Z = build_quantile_instrument(X, n_quantiles)
 end
 
 function boot_idx = block_bootstrap_idx(donor_labels, unique_donors, n_total)
-% BLOCK_BOOTSTRAP_IDX  Resample cell indices within each donor block.
-% Preserves donor structure by sampling with replacement within each donor.
+% Resample cell indices within each donor block (preserves donor structure).
     boot_idx = zeros(n_total, 1);
     ptr = 1;
     for di = 1:numel(unique_donors)

@@ -1,43 +1,14 @@
 function signature = generate_biomarker_signature(expr_condition, expr_reference, ...
     gene_names, condition_specific, output_dir)
-% GENERATE_BIOMARKER_SIGNATURE
+% GENERATE_BIOMARKER_SIGNATURE  LASSO logistic regression (5-fold CV, 1-SE rule)
+%   on condition-specific L/R genes to identify a minimal discriminating panel.
 %
-% Identifies a minimal gene panel that discriminates the condition from the
-% reference using LASSO-regularized logistic regression with 5-fold
-% cross-validation. Only ligands and receptors from the condition-specific
-% interaction table are considered as candidate genes, focusing the panel
-% on genes driving the altered communication landscape.
-%
-% Model selection uses the 1-SE rule (Hastie, Tibshirani & Friedman 2009):
-% the most parsimonious lambda whose CV deviance falls within one standard
-% error of the minimum. This biases toward fewer genes while accepting a
-% small performance penalty — important for clinical feasibility.
-%
-% A panel with fewer, more discriminative genes is more likely to succeed
-% as a clinical assay (e.g., NanoString, qPCR, IHC) than one requiring
-% hundreds of genes.
-%
-% All performance metrics (AUC, sensitivity, specificity, PPV, NPV) are
-% estimated on a held-out 20% test set, NOT the training data. Reported
-% numbers are therefore unbiased estimates of true out-of-sample performance.
-%
-% Inputs:
-%   expr_condition    - [cells x genes] expression matrix, condition cells
-%   expr_reference    - [cells x genes] expression matrix, reference cells
-%                       (empty matrix [] if no reference available)
-%   gene_names        - Cell array or struct with .gene_name field
-%   condition_specific - Table from identify_gbm_specific_interactions
-%   output_dir        - Directory for CSV output
+% signature = generate_biomarker_signature(expr_condition, expr_reference,
+%                 gene_names, condition_specific, output_dir)
 %
 % Outputs:
-%   signature.genes          - Gene panel (cell array of strings)
-%   signature.weights        - LASSO log-odds coefficients (condition = positive)
-%   signature.n_genes        - Number of genes in the panel
-%   signature.auc            - Held-out AUC-ROC
-%   signature.sensitivity    - Sensitivity at 0.5 probability threshold
-%   signature.specificity    - Specificity at 0.5 probability threshold
-%   signature.ppv            - Positive predictive value
-%   signature.npv            - Negative predictive value
+%   .genes / .weights / .n_genes - Selected panel and LASSO coefficients
+%   .auc / .sensitivity / .specificity / .ppv / .npv - Held-out performance
 %   signature.roc_fpr        - ROC false positive rate vector
 %   signature.roc_tpr        - ROC true positive rate vector
 %   signature.evidence_tier  - Tier A/B/C/D based on held-out AUC

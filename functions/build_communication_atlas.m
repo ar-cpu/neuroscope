@@ -2,82 +2,27 @@ function atlas = build_communication_atlas(networks, condition_specifics, datase
 % BUILD_COMMUNICATION_ATLAS  Multi-dataset communication atlas: conserved and
 %   specialized signaling programs across biological conditions or tissues.
 %
-% Scientific rationale
-% --------------------
-% The Allen Brain Atlas provides cell-cell communication data from multiple
-% cell populations sequenced separately (e.g., MGE interneurons, non-neuronal
-% cells, excitatory neurons). Rather than analyzing each dataset in isolation,
-% we can ask: which ligand-receptor channels are CONSERVED across all brain
-% cell types, and which are SPECIALIZED to particular cell populations?
-%
-% Conservation analysis is analogous to evolutionary conservation in genomics:
-% a channel conserved across multiple independent cell populations is more
-% likely to reflect a fundamental biological principle than a channel found
-% in only one dataset. Conserved channels are stronger publication candidates.
-%
-% This function implements a three-level atlas:
-%
-%   Level 1 — Channel conservation: For each L-R pair, what fraction of
-%   datasets have it as an active channel (capacity > threshold)?
-%   Conservation score 1.0 = present in all datasets, 0 = dataset-specific.
-%
-%   Level 2 — Program matching: NMF communication programs (from
-%   discover_communication_programs) across datasets are compared by cosine
-%   similarity of their L-R loading vectors. Programs with cos > 0.6 are
-%   "conserved programs" (same biological logic operating across datasets).
-%   Programs with cos < 0.3 to all other programs are "specialized programs"
-%   (potentially novel biology unique to that dataset).
-%
-%   Level 3 — Communication diversity: Shannon entropy of the program
-%   weight distribution across L-R pairs. High entropy = many channels
-%   contribute equally (diverse communication). Low entropy = one or few
-%   channels dominate (specialized communication).
-%
-% Output atlas table can be exported for publication as a supplementary
-% resource — a "communication atlas" for the tissue under study.
-%
 % Usage:
 %   atlas = build_communication_atlas(networks, condition_specifics, dataset_names)
-%
-%   atlas = build_communication_atlas(networks, condition_specifics, dataset_names, ...
-%       'capacity_threshold', 0.05, 'conservation_cosine_threshold', 0.6, ...
-%       'verbose', true)
+%   atlas = build_communication_atlas(..., 'capacity_threshold', 0.05, 'verbose', true)
 %
 % Inputs:
-%   networks            - {N x 1} cell array of network structs, one per dataset.
-%                         Each must have fields: .ligands, .receptors,
-%                         and optionally .channel_capacity, .weights.
-%   condition_specifics - {N x 1} cell array of condition_specific tables.
-%                         Each must have at least columns: Ligand, Receptor, FDR.
-%                         Pass {} or cell array of empty tables if not available.
-%   dataset_names       - {N x 1} cell array of dataset name strings.
+%   networks            - {N×1} cell array of network structs (fields: .ligands, .receptors,
+%                         optionally .channel_capacity, .weights)
+%   condition_specifics - {N×1} cell array of tables with columns Ligand, Receptor, FDR.
+%                         Pass {} or empty tables if unavailable.
+%   dataset_names       - {N×1} cell array of dataset name strings
 %
-% Optional name-value parameters:
-%   'capacity_threshold'          - Minimum channel capacity (or weight) for a
-%                                   channel to count as "active" (default: 0.05).
-%   'conservation_cosine_high'    - Cosine similarity threshold above which two
-%                                   NMF programs are considered "conserved"
-%                                   (default: 0.6).
-%   'conservation_cosine_low'     - Below this threshold, programs are considered
-%                                   "specialized" (default: 0.3).
-%   'fdr_threshold'               - FDR cutoff for condition-specific channels
-%                                   (default: 0.05).
-%   'verbose'                     - Print progress (default: true).
+% Optional parameters:
+%   'capacity_threshold'       - Min channel capacity to count as active (default 0.05)
+%   'conservation_cosine_high' - Cosine threshold for conserved NMF programs (default 0.6)
+%   'conservation_cosine_low'  - Below this = specialized program (default 0.3)
+%   'fdr_threshold'            - FDR cutoff for condition-specific channels (default 0.05)
+%   'verbose'                  - Print progress (default true)
 %
 % Output:
-%   atlas struct with fields:
-%   .lr_table            table  Per-L-R pair summary (main atlas table)
-%     Columns: LRPair, Ligand, Receptor, ConservationScore, PresentInDatasets,
-%              DominantProgram, MeanCapacity, MaxCapacity, IsConditionSpecific,
-%              BiologicalFunction, DiversityIndex
-%   .conserved_programs  table  NMF programs conserved across >= 2 datasets
-%   .specialized_programs table NMF programs unique to one dataset
-%   .diversity_index     [N x 1] Shannon entropy of program weights per dataset
-%   .n_datasets          scalar  number of datasets analyzed
-%   .dataset_names       {N x 1} dataset names
-%   .cross_dataset_matrix [n_lr_pairs x N] capacity matrix (rows=LR, cols=datasets)
-
-%% --- Parse inputs -------------------------------------------------------
+%   atlas.lr_table, .conserved_programs, .specialized_programs, .diversity_index,
+%   .n_datasets, .dataset_names, .cross_dataset_matrix
 
 p = inputParser();
 p.addRequired('networks');
@@ -96,17 +41,9 @@ cos_low       = p.Results.conservation_cosine_low;
 fdr_thresh    = p.Results.fdr_threshold;
 verbose       = p.Results.verbose;
 
-%% --- Validate inputs ----------------------------------------------------
-
-if ~iscell(networks)
-    networks = {networks};
-end
-if ~iscell(condition_specifics)
-    condition_specifics = {condition_specifics};
-end
-if ~iscell(dataset_names)
-    dataset_names = {dataset_names};
-end
+if ~iscell(networks),           networks = {networks};                  end
+if ~iscell(condition_specifics), condition_specifics = {condition_specifics}; end
+if ~iscell(dataset_names),      dataset_names = {dataset_names};       end
 
 N = length(networks);
 
@@ -119,40 +56,22 @@ if verbose
 end
 
 if N < 2
-    fprintf('  Warning: only %d dataset provided. Atlas requires >= 2 for cross-dataset analysis.\n', N);
-    fprintf('  Returning single-dataset atlas.\n');
+    fprintf('  Warning: only %d dataset provided. Atlas requires >= 2.\n', N);
 end
 
-%% =========================================================================
-%% Step 1: Cross-dataset L-R pair alignment
-%% =========================================================================
-%
-% Build a unified list of ALL L-R pairs observed in ANY dataset.
-% Then, for each dataset, record the capacity/weight for each pair.
-% Pairs absent in a dataset get capacity = 0.
+% Step 1: Cross-dataset L-R pair alignment.
+if verbose, fprintf('\n--- Step 1: Cross-dataset L-R pair alignment ---\n'); end
 
-if verbose
-    fprintf('\n--- Step 1: Cross-dataset L-R pair alignment ---\n');
-end
-
-% Collect all L-R pairs across datasets
-all_lr_pairs = {};   % will grow as we scan datasets
+all_lr_pairs = {};
 for d = 1:N
     net = networks{d};
-    if isempty(net) || ~isfield(net, 'ligands')
-        continue;
-    end
+    if isempty(net) || ~isfield(net, 'ligands'), continue; end
 
-    % Normalize to column cell arrays
     ligs = net.ligands(:);
     recs = net.receptors(:);
 
-    if ~iscell(ligs)
-        ligs = cellstr(num2str(ligs));
-    end
-    if ~iscell(recs)
-        recs = cellstr(num2str(recs));
-    end
+    if ~iscell(ligs), ligs = cellstr(num2str(ligs)); end
+    if ~iscell(recs), recs = cellstr(num2str(recs)); end
 
     pairs_d = strcat(ligs, '__', recs);
     all_lr_pairs = union(all_lr_pairs, pairs_d);
@@ -164,7 +83,6 @@ if verbose
     fprintf('  Unique L-R pairs across all datasets: %d\n', n_lr_total);
 end
 
-% Parse pair names back into ligand/receptor
 lr_ligands   = cell(n_lr_total, 1);
 lr_receptors = cell(n_lr_total, 1);
 for i = 1:n_lr_total
@@ -173,23 +91,19 @@ for i = 1:n_lr_total
     lr_receptors{i} = parts{2};
 end
 
-% Build cross-dataset capacity matrix: [n_lr x N]
 cross_dataset_matrix = zeros(n_lr_total, N);
 
 for d = 1:N
     net = networks{d};
-    if isempty(net) || ~isfield(net, 'ligands')
-        continue;
-    end
+    if isempty(net) || ~isfield(net, 'ligands'), continue; end
 
     ligs_d = net.ligands(:);
     recs_d = net.receptors(:);
-    if ~iscell(ligs_d); ligs_d = cellstr(num2str(ligs_d)); end
-    if ~iscell(recs_d); recs_d = cellstr(num2str(recs_d)); end
+    if ~iscell(ligs_d), ligs_d = cellstr(num2str(ligs_d)); end
+    if ~iscell(recs_d), recs_d = cellstr(num2str(recs_d)); end
 
     pairs_d = strcat(ligs_d, '__', recs_d);
 
-    % Get capacity or weight for each pair
     if isfield(net, 'channel_capacity') && ~isempty(net.channel_capacity)
         cap_d = net.channel_capacity(:);
     elseif isfield(net, 'weights') && ~isempty(net.weights)
@@ -198,42 +112,29 @@ for d = 1:N
         cap_d = ones(length(pairs_d), 1);
     end
 
-    % For each pair in this dataset, find it in the global list
     [~, ia, ib] = intersect(all_lr_pairs, pairs_d, 'stable');
     cross_dataset_matrix(ia, d) = cap_d(ib);
 end
 
 if verbose
     n_any = sum(any(cross_dataset_matrix > cap_thresh, 2));
-    fprintf('  L-R pairs active (capacity>%.3f) in at least one dataset: %d\n', cap_thresh, n_any);
+    fprintf('  Active (capacity>%.3f) in at least one dataset: %d\n', cap_thresh, n_any);
     for d = 1:N
         n_active_d = sum(cross_dataset_matrix(:, d) > cap_thresh);
         fprintf('  %s: %d active channels\n', dataset_names{d}, n_active_d);
     end
 end
 
-%% =========================================================================
-%% Step 2: Conservation scores
-%% =========================================================================
-%
-% Conservation score per L-R pair = fraction of datasets where the pair
-% is active (capacity > threshold).
-% Range: 0 (never active) to 1 (active in all datasets).
+% Step 2: Conservation scores.
+if verbose, fprintf('\n--- Step 2: Conservation scoring ---\n'); end
 
-if verbose
-    fprintf('\n--- Step 2: Conservation scoring ---\n');
-end
+is_active = cross_dataset_matrix > cap_thresh;
+conservation_score = sum(is_active, 2) / N;
+present_in_n = sum(is_active, 2);
 
-is_active = cross_dataset_matrix > cap_thresh;           % [n_lr x N] logical
-conservation_score = sum(is_active, 2) / N;              % [n_lr x 1]
-present_in_n = sum(is_active, 2);                         % [n_lr x 1] integer count
-
-% Identify "conserved channels" (active in ALL datasets)
-is_conserved = conservation_score == 1.0;
-% "Specialized channels" (active in exactly ONE dataset)
+is_conserved  = conservation_score == 1.0;
 is_specialized = present_in_n == 1;
 
-% Build string: which datasets each pair appears in
 present_in_datasets_str = cell(n_lr_total, 1);
 for i = 1:n_lr_total
     ds = dataset_names(is_active(i, :));
@@ -251,40 +152,22 @@ if verbose
     end
 end
 
-%% =========================================================================
-%% Step 3: NMF communication program matching
-%% =========================================================================
-%
-% If the networks contain NMF program information (from discover_communication_programs),
-% we match programs across datasets by cosine similarity of their L-R loadings.
-%
-% A "program loading vector" is a [1 x n_lr_total] vector where each element
-% is the weight/loading of that L-R pair in the program. We reconstruct this
-% from the network data.
-%
-% Programs with cosine similarity > cos_high are "conserved programs" (same
-% biological principle operating in both datasets).
-% Programs with cosine similarity < cos_low to all programs in another dataset
-% are "specialized programs" (potentially novel).
+% Step 3: NMF communication program matching via cosine similarity.
+if verbose, fprintf('\n--- Step 3: NMF program matching ---\n'); end
 
-if verbose
-    fprintf('\n--- Step 3: NMF program matching ---\n');
-end
-
-all_programs      = {};  % {dataset_idx, program_idx} -> loading vector over n_lr_total
-all_program_names = {};  % descriptive names
-all_program_datasets = []; % which dataset each program belongs to
+all_programs      = {};
+all_program_names = {};
+all_program_datasets = [];
 
 for d = 1:N
     net = networks{d};
 
     if ~isfield(net, 'programs') || isempty(net.programs)
-        % No NMF programs available: construct a surrogate "program" from the
-        % top-capacity interactions in this dataset (treat as single program).
+        % No NMF programs: treat full capacity vector as a single surrogate program.
         ligs_d = net.ligands(:);
         recs_d = net.receptors(:);
-        if ~iscell(ligs_d); ligs_d = cellstr(num2str(ligs_d)); end
-        if ~iscell(recs_d); recs_d = cellstr(num2str(recs_d)); end
+        if ~iscell(ligs_d), ligs_d = cellstr(num2str(ligs_d)); end
+        if ~iscell(recs_d), recs_d = cellstr(num2str(recs_d)); end
 
         if isfield(net, 'channel_capacity') && ~isempty(net.channel_capacity)
             cap_d = net.channel_capacity(:);
@@ -296,12 +179,10 @@ for d = 1:N
 
         pairs_d = strcat(ligs_d, '__', recs_d);
 
-        % Build loading vector over all L-R pairs
         loading_vec = zeros(1, n_lr_total);
         [~, ia, ib] = intersect(all_lr_pairs, pairs_d, 'stable');
         loading_vec(ia) = cap_d(ib);
 
-        % Normalize to unit vector for cosine similarity
         if norm(loading_vec) > 0
             loading_vec = loading_vec / norm(loading_vec);
         end
@@ -310,17 +191,15 @@ for d = 1:N
         all_program_names{end+1}   = sprintf('%s_P1', dataset_names{d});
         all_program_datasets(end+1) = d;
     else
-        % Use actual NMF programs
         prog_struct = net.programs;
         if isfield(prog_struct, 'W')
-            % W is [n_lr x k] loading matrix
             W = prog_struct.W;
             n_prog = size(W, 2);
 
             ligs_d = net.ligands(:);
             recs_d = net.receptors(:);
-            if ~iscell(ligs_d); ligs_d = cellstr(num2str(ligs_d)); end
-            if ~iscell(recs_d); recs_d = cellstr(num2str(recs_d)); end
+            if ~iscell(ligs_d), ligs_d = cellstr(num2str(ligs_d)); end
+            if ~iscell(recs_d), recs_d = cellstr(num2str(recs_d)); end
             pairs_d = strcat(ligs_d, '__', recs_d);
             [~, ia, ib] = intersect(all_lr_pairs, pairs_d, 'stable');
 
@@ -344,15 +223,13 @@ if verbose
     fprintf('  Total programs across all datasets: %d\n', n_programs_total);
 end
 
-% Compute pairwise cosine similarity between all programs
-% [n_prog x n_prog] matrix
 cosine_matrix = zeros(n_programs_total, n_programs_total);
 for i = 1:n_programs_total
     for j = i:n_programs_total
         vi = all_programs{i};
         vj = all_programs{j};
         if norm(vi) > 0 && norm(vj) > 0
-            c = dot(vi, vj);  % already unit-normalized
+            c = dot(vi, vj);   % vectors already unit-normalized
         else
             c = 0;
         end
@@ -361,11 +238,10 @@ for i = 1:n_programs_total
     end
 end
 
-% Find conserved programs: pairs from DIFFERENT datasets with cosine > cos_high
 conserved_program_rows = {};
 for i = 1:n_programs_total
     for j = i+1:n_programs_total
-        if all_program_datasets(i) ~= all_program_datasets(j)  % different datasets
+        if all_program_datasets(i) ~= all_program_datasets(j)
             if cosine_matrix(i,j) >= cos_high
                 conserved_program_rows{end+1} = {
                     all_program_names{i}, all_program_names{j}, ...
@@ -378,8 +254,6 @@ for i = 1:n_programs_total
     end
 end
 
-% Find specialized programs: those with NO match (cosine < cos_low) to any
-% program in any OTHER dataset
 is_specialized_prog = false(n_programs_total, 1);
 for i = 1:n_programs_total
     max_other_cosine = 0;
@@ -397,7 +271,6 @@ if verbose
         cos_low, sum(is_specialized_prog));
 end
 
-% Build conserved programs table
 if ~isempty(conserved_program_rows)
     cp_matrix = vertcat(conserved_program_rows{:});
     conserved_programs = table( ...
@@ -408,7 +281,6 @@ else
     conserved_programs = table();
 end
 
-% Build specialized programs table
 spec_prog_names    = all_program_names(is_specialized_prog)';
 spec_prog_datasets = dataset_names(all_program_datasets(is_specialized_prog))';
 if ~isempty(spec_prog_names)
@@ -418,7 +290,6 @@ else
     specialized_programs = table();
 end
 
-% Assign "dominant program" per L-R pair: the program with highest loading
 dominant_program_per_lr = cell(n_lr_total, 1);
 for i = 1:n_lr_total
     best_prog = 1;
@@ -432,19 +303,8 @@ for i = 1:n_lr_total
     dominant_program_per_lr{i} = all_program_names{best_prog};
 end
 
-%% =========================================================================
-%% Step 4: Communication diversity index per dataset
-%% =========================================================================
-%
-% Shannon entropy of the capacity distribution across active L-R pairs.
-% H = - sum_i p_i * log2(p_i)  where p_i = capacity_i / total_capacity
-%
-% High entropy: communication is distributed across many channels (robust).
-% Low entropy:  one or few channels dominate (specialized/vulnerable).
-
-if verbose
-    fprintf('\n--- Step 4: Communication diversity index ---\n');
-end
+% Step 4: Shannon entropy of capacity distribution per dataset.
+if verbose, fprintf('\n--- Step 4: Communication diversity index ---\n'); end
 
 diversity_index = zeros(N, 1);
 for d = 1:N
@@ -462,22 +322,11 @@ if verbose
     end
 end
 
-%% =========================================================================
-%% Step 5: Annotate with biological function (keyword-based heuristic)
-%% =========================================================================
-%
-% Assign coarse biological function labels based on gene family membership.
-% This allows the atlas table to be scanned for pathways of interest.
-% NOTE: This is a heuristic based on gene name patterns, not a curated
-% ontology lookup. For publication, replace with a proper pathway database.
-
-if verbose
-    fprintf('\n--- Step 5: Biological function annotation ---\n');
-end
+% Step 5: Biological function annotation (keyword heuristic, not curated ontology).
+if verbose, fprintf('\n--- Step 5: Biological function annotation ---\n'); end
 
 bio_function = cell(n_lr_total, 1);
 
-% Define keyword patterns → function labels
 func_patterns = {
     {'BDNF','NGF','NT3','NT4','NTRK'},        'Neurotrophin signaling';
     {'CXCL','CCL','CXCR','CCR'},              'Chemokine signaling';
@@ -517,7 +366,6 @@ for i = 1:n_lr_total
     end
 end
 
-% Tally biological functions
 [func_labels, ~, func_idx] = unique(bio_function);
 func_counts = histcounts(func_idx, 1:length(func_labels)+1);
 [func_counts_sorted, sort_ord] = sort(func_counts, 'descend');
@@ -529,16 +377,8 @@ if verbose
     end
 end
 
-%% =========================================================================
-%% Step 6: Condition-specific annotation
-%% =========================================================================
-%
-% For each L-R pair, check whether it appears in any condition_specific table
-% with FDR < fdr_threshold. Flag these pairs as "condition-specific".
-
-if verbose
-    fprintf('\n--- Step 6: Condition-specific annotation ---\n');
-end
+% Step 6: Condition-specific annotation.
+if verbose, fprintf('\n--- Step 6: Condition-specific annotation ---\n'); end
 
 is_condition_specific = false(n_lr_total, 1);
 
@@ -556,9 +396,7 @@ for d = 1:N
     end
 
     sig_mask = cs.FDR < fdr_thresh;
-    if ~any(sig_mask)
-        continue;
-    end
+    if ~any(sig_mask), continue; end
 
     sig_pairs = strcat(cs.Ligand(sig_mask), '__', cs.Receptor(sig_mask));
     [~, ia] = ismember(sig_pairs, all_lr_pairs);
@@ -567,23 +405,16 @@ for d = 1:N
 end
 
 if verbose
-    fprintf('  Condition-specific L-R pairs (FDR<%.2f in any dataset): %d\n', ...
+    fprintf('  Condition-specific pairs (FDR<%.2f in any dataset): %d\n', ...
         fdr_thresh, sum(is_condition_specific));
 end
 
-%% =========================================================================
-%% Step 7: Assemble atlas table
-%% =========================================================================
+% Step 7: Assemble atlas table.
+if verbose, fprintf('\n--- Step 7: Assembling atlas table ---\n'); end
 
-if verbose
-    fprintf('\n--- Step 7: Assembling atlas table ---\n');
-end
-
-% Compute mean and max capacity across datasets for each L-R pair
 mean_capacity = mean(cross_dataset_matrix, 2);
 max_capacity  = max(cross_dataset_matrix, [], 2);
 
-% Build the atlas table
 atlas_table = table( ...
     all_lr_pairs(:), ...
     lr_ligands(:), ...
@@ -603,7 +434,6 @@ atlas_table = table( ...
         'IsConditionSpecific', 'BiologicalFunction' ...
     });
 
-% Sort by conservation score (desc), then mean capacity (desc)
 [~, sort_order] = sortrows( ...
     [atlas_table.ConservationScore, atlas_table.MeanCapacity], [-1, -2]);
 atlas_table = atlas_table(sort_order, :);
@@ -619,8 +449,6 @@ if verbose
     end
 end
 
-%% --- Assemble output struct ---------------------------------------------
-
 atlas = struct();
 atlas.lr_table              = atlas_table;
 atlas.conserved_programs    = conserved_programs;
@@ -634,7 +462,6 @@ atlas.cosine_matrix         = cosine_matrix;
 atlas.program_names         = all_program_names(:);
 atlas.conservation_score    = conservation_score;
 
-% Save results
 if exist('results', 'dir')
     try
         writetable(atlas_table, fullfile('results', 'communication_atlas.csv'));
@@ -647,11 +474,8 @@ if exist('results', 'dir')
         div_table = table(dataset_names(:), diversity_index, ...
             'VariableNames', {'Dataset', 'DiversityIndex_bits'});
         writetable(div_table, fullfile('results', 'communication_diversity.csv'));
-        if verbose
-            fprintf('  Atlas CSVs saved to results/\n');
-        end
+        if verbose, fprintf('  Atlas CSVs saved to results/\n'); end
     catch
-        % Non-fatal
     end
 end
 

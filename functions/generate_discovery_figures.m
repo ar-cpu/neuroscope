@@ -1,41 +1,10 @@
 function generate_discovery_figures(niche_results, promiscuity_results, autocrine_results, circuit_results, motif_results, fragility_results)
-% GENERATE_DISCOVERY_FIGURES  Produce six publication-quality figures (300 DPI)
-%   visualizing the results of the NEUROSCOPE discovery analysis suite.
+% GENERATE_DISCOVERY_FIGURES  Six 300-DPI figures for discovery analysis results.
+%   Figures are skipped if the corresponding input struct is empty.
+%   Outputs saved to results/poster_figures/ as PNG.
 %
-% Each figure corresponds to one discovery analysis. All column names are
-% resolved dynamically against the actual result table schema, so figures
-% remain valid even if upstream analysis functions produce differently named
-% columns. Individual figures are silently skipped if the corresponding input
-% is empty or missing required fields.
-%
-% Figure panels
-% -------------
-%   Figure 1 — Spatial niche enrichment heatmap: top L-R pairs by fold
-%               enrichment, grouped by functional niche.
-%   Figure 2 — Receptor promiscuity: scatter of LigandCount vs competition
-%               index, with drug-target annotations.
-%   Figure 3 — Autocrine signaling: bar chart of AutocrineScore for the top
-%               autocrine loops, colored by condition-specific status.
-%   Figure 4 — Feedback circuits: gain distribution histogram separating
-%               amplifying and attenuating circuits.
-%   Figure 5 — Network motifs: z-score comparison of Chain, Loop, and Fan
-%               motif frequencies against Maslov-Sneppen null networks.
-%   Figure 6 — Network fragility: percolation curves comparing condition
-%               vs. reference network robustness to node removal.
-%
-% Outputs are saved to results/poster_figures/ as PNG files at 300 DPI.
-%
-% Usage:
-%   generate_discovery_figures(niche_results, promiscuity_results, autocrine_results, ...
-%       circuit_results, motif_results, fragility_results)
-%
-% Inputs (all optional — figures are skipped if the corresponding struct is empty):
-%   niche_results       - Struct from discover_spatial_communication_niches().
-%   promiscuity_results - Struct from discover_receptor_promiscuity().
-%   autocrine_results   - Struct from discover_autocrine_signaling().
-%   circuit_results     - Struct from discover_feedback_circuits().
-%   motif_results       - Struct from discover_network_motifs().
-%   fragility_results   - Struct from discover_network_fragility().
+% generate_discovery_figures(niche_results, promiscuity_results, autocrine_results,
+%     circuit_results, motif_results, fragility_results)
 
 fprintf('Generating discovery figures (300 DPI)\n\n');
 

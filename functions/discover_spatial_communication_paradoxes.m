@@ -1,43 +1,14 @@
 function paradox_results = discover_spatial_communication_paradoxes(gbm_network, gbm_clusters, gbm_specific)
-% DISCOVER_SPATIAL_COMMUNICATION_PARADOXES  Detect spatial-molecular
-%   mismatches in cell-cell communication by comparing the expected
-%   relationship between physical cluster proximity and observed signaling
-%   activity.
+% DISCOVER_SPATIAL_COMMUNICATION_PARADOXES  Detect mismatches between cluster
+%   spatial proximity and observed signaling activity (silent neighbors,
+%   asymmetric neighbors, distant broadcasters).
 %
-% Spatial communication theory predicts that physically adjacent cell
-% populations should communicate more strongly than distant ones (due to
-% diffusion constraints on paracrine signaling). Systematic violations of
-% this expectation reveal biologically interesting organizational principles:
-%
-%   Paradox 1 — Silent Neighbors
-%     Cluster pairs that are spatially close but have little or no molecular
-%     communication. May indicate active signaling suppression, incompatible
-%     receptor expression, or immune exclusion zones.
-%
-%   Paradox 2 — Asymmetric Neighbors
-%     Cluster pairs where signaling is strongly unidirectional despite mutual
-%     proximity. Suggests dominant sender-receiver specialization.
-%
-%   Paradox 3 — Distant Broadcasters
-%     Cluster pairs with strong molecular communication despite large spatial
-%     separation. Consistent with endocrine or long-range chemokine signaling.
-%
-% Spatial coordinates are extracted from the clusters table. Cluster centroid
-% distances are computed from these coordinates. Communication strength is
-% quantified by the number of directed interaction edges between each cluster
-% pair. A proximity-communication correlation is reported as a data-quality
-% diagnostic.
-%
-% Usage:
-%   paradox_results = discover_spatial_communication_paradoxes(network, clusters, condition_specific)
+% paradox_results = discover_spatial_communication_paradoxes(gbm_network, gbm_clusters, gbm_specific)
 %
 % Inputs:
-%   gbm_network  - Communication network struct with fields:
-%                    .source_clusters, .target_clusters, .ligands, .receptors
-%   gbm_clusters - Table with spatial coordinates and cluster IDs. Must
-%                  contain columns with names matching the patterns:
-%                    cluster: column name contains 'cluster'
-%                    x-coordinate: name contains 'x' + ('coord'/'pos'/'cent')
+%   gbm_network  - Network struct (.source_clusters, .target_clusters, ...)
+%   gbm_clusters - Table with spatial coordinates and cluster IDs
+%                  (columns containing 'cluster', 'x'+'coord', 'y'+'coord')
 %                    y-coordinate: name contains 'y' + ('coord'/'pos'/'cent')
 %   gbm_specific - Table of condition-specific interactions, used to annotate
 %                  which paradoxical channels are condition-enriched.

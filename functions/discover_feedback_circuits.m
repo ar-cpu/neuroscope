@@ -1,43 +1,12 @@
 function circuit_results = discover_feedback_circuits(gbm_network, condition_specific, max_circuit_length)
-% DISCOVER_FEEDBACK_CIRCUITS  Enumerate directed feedback cycles in the
-%   cell-cell communication network and classify each circuit by its
-%   algebraic loop gain.
+% DISCOVER_FEEDBACK_CIRCUITS  Enumerate directed feedback cycles and classify
+%   by loop gain G = ∏ w_i (Amplifying G>1.05 / Near-critical / Attenuating).
 %
-% A feedback circuit is a directed closed walk A → B → … → A in the
-% gene-level interaction graph. Such circuits are mechanistically relevant:
-% positive feedback (gain > 1) can drive bistability and irreversible state
-% transitions, while negative feedback (gain < 1) stabilizes gene expression
-% (Thomas & d'Ari 1990; Cinquin & Demongeot 2002).
-%
-% Circuit strength
-% ----------------
-% Each edge in the gene graph carries a weight equal to the mean of all
-% network interaction weights between those two genes across all cluster pairs.
-% Circuit strength is the geometric mean of the edge weights along the cycle —
-% this is the appropriate measure because the geometric mean is invariant to
-% the order of traversal and decreases monotonically with any weak link.
-%
-% Loop gain and circuit classification
-% -------------------------------------
-% Loop gain is the product of all edge weights around the circuit:
-%   G = ∏ w_i
-% Circuits are classified as:
-%   Amplifying     (G > 1.05) — potential positive feedback; may drive
-%                               pathological state transitions
-%   Near-critical  (G ∈ [0.95, 1.05]) — marginally stable; sensitive to
-%                               perturbation
-%   Attenuating    (G < 0.95) — negative feedback; homeostatic regulation
-%
-% Reference: Thomas R & d'Ari R (1990) Biological Feedback. CRC Press.
-%            Cinquin O & Demongeot J (2002) J. Theor. Biol. 216:229-241.
-%
-% Usage:
-%   circuit_results = discover_feedback_circuits(gbm_network, condition_specific)
-%   circuit_results = discover_feedback_circuits(gbm_network, condition_specific, max_circuit_length)
+% circuit_results = discover_feedback_circuits(gbm_network, condition_specific)
+% circuit_results = discover_feedback_circuits(gbm_network, condition_specific, max_circuit_length)
 %
 % Inputs:
-%   gbm_network          - Communication network struct with fields:
-%                            .ligands, .receptors, .weights
+%   gbm_network          - Network struct (.ligands, .receptors, .weights)
 %   condition_specific   - Table of condition-specific interactions. Used to
 %                          annotate whether each circuit's edges are enriched
 %                          in the condition vs. reference.

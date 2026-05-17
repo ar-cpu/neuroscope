@@ -1,39 +1,17 @@
 function identity = compute_communication_identity(cell_comm_profiles, cell_metadata)
-% COMPUTE_COMMUNICATION_IDENTITY  Quantify the decoupling between communication
-% states and transcriptomic cluster identity.
+% COMPUTE_COMMUNICATION_IDENTITY  ARI/NMI between communication states and
+%   transcriptomic clusters, plus per-cell divergence score (CDS).
+%   CDS_i = 1 - P(comm_state=s_i | trans_cluster=c_i); high-CDS cells
+%   communicate differently from their transcriptomic neighbours.
 %
-% SCIENTIFIC MOTIVATION:
-%   Transcriptomic clusters group cells by gene expression similarity.
-%   Communication states (from compute_cell_communication_profiles) group cells
-%   by their information-sending and information-receiving behaviour.
+% identity = compute_communication_identity(cell_comm_profiles, cell_metadata)
 %
-%   If the two clusterings are aligned  (ARI ≈ 1), communication is fully
-%   predictable from the transcriptome — no new biology.
-%
-%   If they are decoupled (ARI ≈ 0), a cell's communication identity cannot
-%   be predicted from its transcriptomic cluster alone. Those cells are
-%   sitting at signalling state boundaries that are invisible to conventional
-%   sc-RNA-seq analysis — they are the primary novel finding of NEUROSCOPE.
-%
-% PER-CELL COMMUNICATION DIVERGENCE SCORE (CDS):
-%   CDS_i = 1 - P(comm_state = s_i | trans_cluster = c_i)
-%
-%   CDS = 0  → the cell communicates exactly like all its transcriptomic neighbours
-%   CDS ≈ 1  → the cell communicates very differently from all its neighbours
-%
-%   High-CDS cells are candidates for experimental validation — they may be
-%   transitioning between states, receiving unusual long-range signals, or
-%   acting as communication specialists within an otherwise uniform cluster.
-%
-% OUTPUTS (struct fields):
-%   ari                  - Adjusted Rand Index, comm_state vs trans_cluster
-%   nmi                  - Normalised Mutual Information
-%   divergence           - Per-cell CDS vector [n_cells × 1]
-%   n_divergent          - Cells with CDS > 0.5
-%   divergent_fraction   - n_divergent / n_cells
-%   contingency          - Count matrix [n_comm_states × n_trans_clusters]
-%   interpretation       - String: 'Decoupled' / 'Partial' / 'Coupled'
-%   divergent_cells_table - Table sorted by CDS (for CSV export)
+% Outputs (struct):
+%   .ari / .nmi              - clustering agreement metrics
+%   .divergence              - [n_cells x 1] per-cell CDS
+%   .n_divergent             - cells with CDS > 0.5
+%   .interpretation          - 'Decoupled' / 'Partial' / 'Coupled'
+%   .divergent_cells_table   - table sorted by CDS
 
 fprintf('Computing communication identity...\n');
 
@@ -63,7 +41,7 @@ end
 fprintf('  %d cells, %d communication states, %d transcriptomic clusters\n', ...
     n_cells, length(unique(comm_states)), length(unique(trans_clusters)));
 
-%% Adjusted Rand Index + NMI
+% ARI + NMI
 identity.ari = local_ari(comm_states, trans_clusters);
 identity.nmi = local_nmi(comm_states, trans_clusters);
 
@@ -81,7 +59,7 @@ end
 fprintf('  ARI = %.4f | NMI = %.4f | %s\n', identity.ari, identity.nmi, identity.interpretation);
 fprintf('  %s\n', interp_note);
 
-%% Contingency table
+% contingency table
 unique_states    = unique(comm_states);
 unique_trans     = unique(trans_clusters);
 n_states         = length(unique_states);
@@ -96,8 +74,7 @@ ci = cellfun(@(x) trans_map(x), num2cell(double(trans_clusters)));
 
 contingency = accumarray([si, ci], 1, [n_states, n_trans]);
 
-%% Per-cell Communication Divergence Score (vectorised)
-% CDS_i = 1 - contingency[s_i, c_i] / cluster_size[c_i]
+% per-cell divergence score: CDS_i = 1 - contingency[s_i,c_i]/cluster_size[c_i]
 cluster_sizes = sum(contingency, 1);          % [1 × n_trans]
 pair_counts   = contingency(sub2ind([n_states, n_trans], si, ci));  % count(s_i, c_i)
 cluster_n_i   = cluster_sizes(ci);            % cluster size for each cell
@@ -116,7 +93,7 @@ if divergent_fraction > 0.15
     fprintf('  from their transcriptomic neighbours — strong novel finding.\n');
 end
 
-%% Per-cell output table
+% per-cell output table
 if ismember('CellID', cell_metadata.Properties.VariableNames)
     cell_ids = cell_metadata.CellID;
 else
@@ -138,7 +115,7 @@ end
 
 fprintf('\n');
 
-%% Assemble output
+% assemble output
 identity.divergence           = divergence;
 identity.n_divergent          = n_divergent;
 identity.divergent_fraction   = divergent_fraction;
@@ -149,10 +126,6 @@ identity.divergent_cells_table = divergent_cells_table;
 
 end
 
-
-%% =========================================================================
-%% Local functions
-%% =========================================================================
 
 function ari = local_ari(a, b)
 % Adjusted Rand Index via contingency table.

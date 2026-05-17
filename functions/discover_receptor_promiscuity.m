@@ -1,49 +1,14 @@
 function promiscuity_results = discover_receptor_promiscuity(gbm_network, gbm_specific)
-% DISCOVER_RECEPTOR_PROMISCUITY  Identify receptors that bind multiple
-%   distinct ligands (hub receptors) and quantify the competitive dynamics
-%   among those ligands for receptor occupancy.
+% DISCOVER_RECEPTOR_PROMISCUITY  Receptors binding multiple ligands: ligand count,
+%   competition index (Shannon entropy of weight distribution), and relative
+%   resistance score. Accepts struct or table network format.
 %
-% Biological motivation
-% ---------------------
-% Receptors that interact with many different ligands present a particular
-% challenge for targeted therapy: blocking a single ligand may be insufficient
-% if alternative ligands can substitute. This function characterizes receptor
-% promiscuity from three complementary angles:
-%
-%   1. Ligand count and statistical enrichment — how many distinct ligands
-%      bind each receptor, tested against a hypergeometric null (analytical
-%      approximation) with BH-FDR correction.
-%   2. Competition index — Shannon entropy of the ligand weight distribution,
-%      normalized to [0, 1]. A score of 0 indicates a single dominant ligand
-%      (monopoly); a score of 1 indicates all ligands contribute equally
-%      (maximum competition).
-%   3. Relative resistance — a heuristic composite of ligand count and
-%      competition index that ranks receptors by difficulty of therapeutic
-%      blockade. This is not a validated mechanistic model; treat it as an
-%      exploratory prioritization tool.
-%
-% Accepts both table and struct network formats; column/field roles are
-% inferred from names containing 'ligand'/'source' and 'receptor'/'target'.
-%
-% Usage:
-%   promiscuity_results = discover_receptor_promiscuity(gbm_network, gbm_specific)
-%
-% Inputs:
-%   gbm_network  - Communication network as a struct (with .ligands,
-%                  .receptors, and optionally .weights fields) or a table
-%                  with analogously named columns.
-%   gbm_specific - Table of condition-specific interactions. Not used
-%                  quantitatively in this function but passed for API
-%                  consistency with other discovery functions.
+% promiscuity_results = discover_receptor_promiscuity(gbm_network, gbm_specific)
 %
 % Outputs:
-%   promiscuity_results.receptor_data   - Per-receptor table with columns:
-%         Receptor, LigandCount, Ligands, TotalWeight, Expected, ZScore,
-%         PValue, FDR, CompetitionIndex, DominantLigand, BackupLigand,
-%         RelativeResistance, IsDrugTarget
-%   promiscuity_results.n_hub_receptors - Receptors binding ≥ 3 ligands
-%   promiscuity_results.n_significant   - Receptors with FDR < 0.05
-%   promiscuity_results.n_drug_targets  - Hub receptors with known drugs
+%   .receptor_data   - Per-receptor table (LigandCount, CompetitionIndex, ...)
+%   .n_hub_receptors - Receptors binding >= 3 ligands
+%   .n_significant   - FDR < 0.05
 
 fprintf('Receptor Promiscuity Analysis\n\n');
 

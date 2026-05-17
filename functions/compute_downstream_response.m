@@ -1,83 +1,28 @@
 function [response_matrix, gene_programs, response_scores] = compute_downstream_response( ...
         expr_matrix, gene_names, cell_metadata, condition_specific, varargin)
-% COMPUTE_DOWNSTREAM_RESPONSE  Measure the actual transcriptional response
-%   of receiver cells to incoming signals — the critical missing step in all
-%   existing cell-cell communication tools.
+% COMPUTE_DOWNSTREAM_RESPONSE  Transcriptional response profiling in receiver cells.
+%   Splits receivers into high/low receptor-expression groups, runs Wilcoxon
+%   DE, takes PC1 of response genes as the response score for channel capacity.
+%   Falls back to receptor expression directly when fewer than min_response_genes found.
 %
-% SCIENTIFIC RATIONALE
-% --------------------
-% Every current communication tool stops at the receptor: it asks "is receptor
-% Y expressed in cluster B?" But receptor expression alone is not a response.
-% The biological question is: do cells receiving a ligand signal *actually
-% change their transcriptional state* in response?
+% [response_matrix, gene_programs, response_scores] = ...
+%     compute_downstream_response(expr_matrix, gene_names, cell_metadata, condition_specific,
+%                                 'max_cells', 500, 'fdr_cutoff', 0.1)
 %
-% This function implements a data-driven approach to measure downstream response:
-%
-%   1. For each L-R pair, receiver cells are divided into "high-signal" and
-%      "low-signal" groups based on the expression level of their receptor
-%      (and known co-receptors if available).
-%
-%   2. A differential expression analysis (Wilcoxon rank-sum, FDR-corrected)
-%      identifies genes that change between high-signal and low-signal receiver
-%      cells. These are the downstream response genes.
-%
-%   3. The first principal component of the response gene matrix is taken as
-%      the "response score" — a scalar summary of how much the receiver is
-%      responding to the signal.
-%
-%   4. This response score is then used by estimate_channel_capacity() to
-%      compute the true information transfer from sender ligand variation to
-%      receiver transcriptional response.
-%
-% APPROACH
-% ---------
-% For each condition-specific L-R pair (Ligand L, Receptor R):
-%
-%   Step 1: Identify receiver cells (in target clusters)
-%   Step 2: Rank cells by receptor expression → split into high (top 33%)
-%           and low (bottom 33%) responders
-%   Step 3: Wilcoxon test on all genes: high-signal vs low-signal cells
-%   Step 4: Select response genes (FDR < 0.1, |log2FC| > 0.5),
-%           up to max_response_genes = 50
-%   Step 5: PCA on response genes → PC1 score = response trajectory
-%   Step 6: Group genes into "response programs" by hierarchical clustering
-%           (up to 5 programs per receptor)
-%
-% If fewer than 10 response genes are found, fall back to receptor expression
-% itself as the response proxy (equivalent to existing tools).
-%
-% USAGE
-%   [response_matrix, gene_programs, response_scores] = ...
-%       compute_downstream_response(expr_matrix, gene_names, cell_metadata, condition_specific)
-%
-% INPUTS
-%   expr_matrix        - [cells × genes] sparse expression matrix (log-normalized)
+% Inputs:
+%   expr_matrix        - [cells × genes] sparse log-normalized expression
 %   gene_names         - {genes×1} cell array of gene symbols
-%   cell_metadata      - Table with at least 'Cluster' column
-%   condition_specific - Table from identify_gbm_specific_interactions()
-%                        with Ligand and Receptor columns
-%   'max_cells'        - max cells per group (default 500)
-%   'fdr_cutoff'       - FDR threshold for response genes (default 0.1)
-%   'min_response_genes' - minimum to use PC1 (otherwise use receptor, default 10)
-%   'max_response_genes' - cap on response genes per receptor (default 50)
+%   cell_metadata      - Table with 'Cluster' column
+%   condition_specific - Table with Ligand, Receptor columns
 %
-% OUTPUTS
-%   response_matrix  - struct indexed by receptor name:
-%                      .genes         {m×1} response gene symbols
-%                      .logFC         [m×1] log2 fold-changes
-%                      .fdr           [m×1] BH-corrected p-values
-%                      .pc1_scores    [n_receivers×1] receiver response scores
-%                      .n_response_genes  scalar
-%                      .source        'downstream' | 'receptor_fallback'
-%   gene_programs    - struct: programs discovered across all receptors
-%   response_scores  - struct indexed by 'Ligand_Receptor': [n_senders × n_receivers]
-%                      matrix of pairwise response scores for channel capacity
+% Outputs:
+%   response_matrix - struct per receptor: .genes, .logFC, .fdr, .pc1_scores,
+%                     .n_response_genes, .source ('downstream'|'receptor_fallback')
+%   gene_programs   - struct of response programs shared across receptors
+%   response_scores - struct of pairwise response score matrices
 
 fprintf('\n=== Downstream Response Analysis ===\n\n');
-fprintf('Measuring transcriptional response in receiver cells...\n');
-fprintf('(This goes beyond receptor co-expression to actual cell state change)\n\n');
 
-% ── Parse options ────────────────────────────────────────────────────────────
 p = inputParser();
 addParameter(p, 'max_cells',          500);
 addParameter(p, 'fdr_cutoff',         0.10);
@@ -86,7 +31,6 @@ addParameter(p, 'max_response_genes', 50);
 parse(p, varargin{:});
 opt = p.Results;
 
-% ── Normalize gene names ──────────────────────────────────────────────────────
 if istable(gene_names)
     if ismember('gene_name', gene_names.Properties.VariableNames)
         gene_names = gene_names.gene_name;
@@ -96,7 +40,6 @@ if istable(gene_names)
 end
 gene_names = cellstr(gene_names);
 
-% ── Extract cluster assignments ───────────────────────────────────────────────
 cluster_ids = cell_metadata.Cluster;
 if iscategorical(cluster_ids), cluster_ids = double(cluster_ids); end
 
@@ -118,7 +61,6 @@ for r_idx = 1:n_receptors
         continue;
     end
 
-    % ── Find receiver cells (in any target cluster for this receptor) ─────────
     lr_rows     = strcmp(condition_specific.Receptor, receptor);
     source_clus = [];
     target_clus = [];
@@ -146,7 +88,6 @@ for r_idx = 1:n_receptors
         receiver_idx = receiver_idx(randsample(length(receiver_idx), opt.max_cells));
     end
 
-    % ── Extract receptor expression and split into high/low ───────────────────
     rec_expr = full(expr_matrix(receiver_idx, rec_col));
 
     q33 = quantile(rec_expr, 1/3);
@@ -172,7 +113,6 @@ for r_idx = 1:n_receptors
     fprintf('  [%d/%d] %s — receivers: %d total, %d high-signal, %d low-signal\n', ...
         r_idx, n_receptors, receptor, length(receiver_idx), n_high, n_low);
 
-    % ── Wilcoxon rank-sum test on all genes ───────────────────────────────────
     n_genes   = size(expr_matrix, 2);
     pvals     = ones(n_genes, 1);
     logFC     = zeros(n_genes, 1);
@@ -237,7 +177,7 @@ for r_idx = 1:n_receptors
     rfield = matlab.lang.makeValidName(receptor);
 
     if n_response >= opt.min_response_genes
-        % ── PC1 of response gene matrix = response score ──────────────────────
+            % PC1 of response gene matrix = response score
         all_receiver_idx = find(receiver_mask);
         if length(all_receiver_idx) > opt.max_cells
             all_receiver_idx = all_receiver_idx(randsample(length(all_receiver_idx), opt.max_cells));
@@ -273,7 +213,6 @@ for r_idx = 1:n_receptors
     end
 end
 
-% ── Gene program discovery across all response genes ─────────────────────────
 fprintf('\nIdentifying shared response gene programs across receptors...\n');
 gene_programs = struct('genes', {{}}, 'receptors', {{}}, 'n_programs', 0);
 
@@ -289,7 +228,6 @@ if length(unique_resp_genes) > 10
     fprintf('  Shared response genes (appear in ≥2 receptors): %d\n', length(top_genes));
 end
 
-% ── Build response score table ────────────────────────────────────────────────
 fprintf('\nDownstream response analysis complete\n');
 n_downstream = sum(structfun(@(s) isfield(s,'source') && strcmp(s.source,'downstream'), response_matrix));
 n_fallback   = sum(structfun(@(s) isfield(s,'source') && strcmp(s.source,'receptor_fallback'), response_matrix));
@@ -327,7 +265,6 @@ end
 end  % main
 
 
-% ── Helper: find gene column index ───────────────────────────────────────────
 function col = gene_names_to_col(gene, gene_names)
 idx = find(strcmpi(gene_names, gene), 1);
 if isempty(idx)

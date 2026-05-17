@@ -1,41 +1,15 @@
 function export_results(gbm_network, gbm_specific, target_rankings, intervention_strategies, dataset_name)
-% EXPORT_RESULTS  Serialize all NEUROSCOPE analysis outputs to disk in
-%                 machine-readable (CSV, JSON) and graph-exchange (GraphML)
-%                 formats, together with human-readable documentation files.
+% EXPORT_RESULTS  Write all NEUROSCOPE outputs to results/ (CSV, JSON, GraphML).
 %
-% Output directory layout
-% -----------------------
-%   results/
-%     networks/
-%       <dataset>_full_network.csv            — complete interaction network
-%       <dataset>_network.graphml             — Cytoscape/Gephi-compatible graph
-%     <dataset>_specific_interactions.csv     — all condition-specific interactions
-%     <dataset>_specific_significant_only.csv — FDR < 0.05 subset
-%     <dataset>_target_rankings.csv           — all ranked therapeutic targets
-%     <dataset>_target_rankings_top20.csv     — top 20 targets
-%     intervention_strategies.csv             — all proposed strategies
-%     intervention_strategies_high_priority.csv
-%     summary_statistics.txt                  — human-readable key metrics
-%     analysis_metadata.json                  — machine-readable metadata
-%     README.txt                              — interpretation guide
-%
-% Usage:
-%   export_results(network, condition_specific, target_rankings, interventions)
-%   export_results(..., dataset_name)
+% export_results(gbm_network, gbm_specific, target_rankings, intervention_strategies)
+% export_results(..., dataset_name)
 %
 % Inputs:
-%   gbm_network             - Communication network struct with fields:
-%                               .ligands, .receptors, .weights,
-%                               .source_clusters, .target_clusters
-%                             Optional: .mi_scores, .significance, .raw_strength
-%   gbm_specific            - Table of condition-specific interactions from
-%                             identify_gbm_specific_interactions(). Must contain
-%                             Ligand, Receptor, and FDR columns.
-%   target_rankings         - Table from rank_therapeutic_targets() with columns
-%                             Ligand, Receptor, TherapeuticScore, DruggabilityScore.
-%   intervention_strategies - Table from propose_interventions(), or empty [].
-%   dataset_name            - (optional) String prefix for output filenames.
-%                             Defaults to 'condition'.
+%   gbm_network             - Network struct (.ligands, .receptors, .weights, ...)
+%   gbm_specific            - Condition-specific interactions table (Ligand, Receptor, FDR)
+%   target_rankings         - Rankings table from rank_communication_channels()
+%   intervention_strategies - Table from propose_interventions(), or []
+%   dataset_name            - File prefix (default: 'condition')
 
 if nargin < 5 || isempty(dataset_name)
     dataset_name = 'condition';
@@ -47,7 +21,7 @@ if ~exist(fullfile('results','novel_discoveries'), 'dir'), mkdir(fullfile('resul
 
 fprintf('Results Export\n\n');
 
-%% Phase 1: Export full network
+% Phase 1: Export full network
 fprintf('Phase 1: Exporting network data...\n');
 
 network_export = table();
@@ -72,7 +46,7 @@ end
 writetable(network_export, fullfile('results', 'networks', [dataset_name '_full_network.csv']));
 fprintf('  Saved: %s_full_network.csv (%d interactions)\n', dataset_name, height(network_export));
 
-%% PHASE 2: EXPORT CONDITION-SPECIFIC INTERACTIONS
+% Phase 2: Export condition-specific interactions
 fprintf('\nPhase 2: Exporting condition-specific interactions...\n');
 
 % Add rich annotations
@@ -110,7 +84,7 @@ significant_only = gbm_specific_export(gbm_specific_export.FDR < 0.05, :);
 writetable(significant_only, fullfile('results', [dataset_name '_specific_significant_only.csv']));
 fprintf('  Saved: %s_specific_significant_only.csv (%d interactions)\n', dataset_name, height(significant_only));
 
-%% Phase 3: Export therapeutic rankings
+% Phase 3: Export rankings
 fprintf('\nPhase 3: Exporting therapeutic target rankings...\n');
 
 % Add clinical context
@@ -152,7 +126,7 @@ top20 = target_rankings_export(1:min(20, height(target_rankings_export)), :);
 writetable(top20, fullfile('results', [dataset_name '_target_rankings_top20.csv']));
 fprintf('  Saved: %s_target_rankings_top20.csv (top 20 targets)\n', dataset_name);
 
-%% Phase 4: Export intervention strategies
+% Phase 4: Export intervention strategies
 fprintf('\nPhase 4: Exporting intervention strategies...\n');
 
 if ~isempty(intervention_strategies) && istable(intervention_strategies)
@@ -167,7 +141,7 @@ if ~isempty(intervention_strategies) && istable(intervention_strategies)
     end
 end
 
-%% Phase 5: Summary statistics
+% Phase 5: Summary statistics
 fprintf('\nPhase 5: Generating summary statistics...\n');
 
 summary_stats = struct();
@@ -261,7 +235,7 @@ fclose(fid);
 
 fprintf('  Saved: summary_statistics.txt\n');
 
-%% Phase 6: Network graph export (GraphML)
+% Phase 6: Network graph export (GraphML)
 fprintf('\nPhase 6: Exporting network graph (GraphML)...\n');
 
 try
@@ -291,7 +265,7 @@ catch ME
     fprintf('  Warning: GraphML export failed: %s\n', ME.message);
 end
 
-%% Phase 7: README file
+% Phase 7: README file
 fprintf('\nPhase 7: Generating README...\n');
 
 readme_file = 'results/README.txt';
@@ -377,12 +351,12 @@ fprintf(fid, 'Analysis runtime: See main output log\n');
 fclose(fid);
 fprintf('  Saved: README.txt\n');
 
-%% Phase 8: Analysis metadata (JSON)
+% Phase 8: Analysis metadata (JSON)
 fprintf('\nPhase 8: Exporting analysis metadata...\n');
 
 metadata = struct();
 metadata.analysis_date = datestr(now);
-metadata.pipeline_version = 'NEUROSCOPE v4.0';
+metadata.pipeline_version = 'NEUROSCOPE v5.2';
 metadata.datasets = struct('condition', dataset_name, 'reference', 'Reference dataset');
 metadata.methods = struct(...
     'clustering', 'Louvain/Leiden with SNN graph', ...
@@ -395,7 +369,7 @@ metadata.results = summary_stats;
 fid = fopen('results/analysis_metadata.json', 'w');
 fprintf(fid, '{\n');
 fprintf(fid, '  "analysis_date": "%s",\n', metadata.analysis_date);
-fprintf(fid, '  "pipeline_version": "%s",\n', metadata.pipeline_version);
+fprintf(fid, '  "pipeline_version": "NEUROSCOPE v5.2",\n');
 fprintf(fid, '  "network_interactions": %d,\n', summary_stats.network.total_interactions);
 fprintf(fid, '  "tumor_specific_interactions": %d,\n', summary_stats.tumor_specific.total);
 fprintf(fid, '  "significant_interactions_fdr_0.05": %d,\n', summary_stats.tumor_specific.significant_fdr_0_05);
@@ -407,7 +381,7 @@ fclose(fid);
 
 fprintf('  Saved: analysis_metadata.json\n');
 
-%% FINAL SUMMARY
+% Final summary
 fprintf('\nExport complete\n\n');
 
 fprintf('FILES GENERATED:\n');

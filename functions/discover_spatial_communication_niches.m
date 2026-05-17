@@ -1,52 +1,19 @@
 function niche_results = discover_spatial_communication_niches(gbm_network, clusters, expr_matrix, genes_table, niche_config)
-% DISCOVER_SPATIAL_COMMUNICATION_NICHES  Assign cells to functional niches
-%   based on marker gene expression profiles, then test which ligand-receptor
-%   interactions are statistically enriched within each niche.
+% DISCOVER_SPATIAL_COMMUNICATION_NICHES  Assign cells to marker-defined niches,
+%   then test L-R enrichment per niche (binomial or Wilcoxon + Fisher).
 %
-% Niche assignment
-% ----------------
-% Each cell is scored against each niche by averaging the expression of the
-% niche's marker genes. Cells are assigned to their highest-scoring niche
-% (argmax). A plasticity index — the normalized Shannon entropy over the
-% niche score distribution — identifies cells that simultaneously express
-% markers from multiple niches, indicating transitional or plastic states.
-% Boundary cells (plasticity > 0.5 or second-best score > 0.3) are flagged
-% for potential inter-niche transition analysis.
-%
-% Enrichment testing strategy
-% ---------------------------
-%   If the network contains cluster assignments:
-%     Binomial test — the proportion of a given L-R pair's occurrences that
-%     fall within the niche is compared to the expected proportion under the
-%     null that interactions are distributed uniformly across clusters.
-%   Otherwise:
-%     Wilcoxon rank-sum test on ligand and receptor expression (niche vs.
-%     rest), combined via Fisher's method (chi-squared with 4 df) for a
-%     single per-pair p-value.
-%
-% Custom niche markers
-% --------------------
-% Pass a niche_config struct to override the default solid-tumor markers.
-% niche_config.niche_markers must be a struct where each field is a niche
-% name and its value is a cell array of marker gene symbols.
-%
-% Usage:
-%   niche_results = discover_spatial_communication_niches(network, clusters, expr, genes)
-%   niche_results = discover_spatial_communication_niches(..., niche_config)
+% niche_results = discover_spatial_communication_niches(network, clusters, expr, genes)
+% niche_results = discover_spatial_communication_niches(..., niche_config)
 %
 % Inputs:
-%   gbm_network  - Communication network struct or table.
-%   clusters     - [cells×1] cluster ID array, or table with a column
-%                  whose name contains 'cluster', 'group', or 'type'.
-%   expr_matrix  - [cells×genes] sparse or dense expression matrix.
-%   genes_table  - Table (first or 'gene'/'symbol'/'name' column) or cell
-%                  array of gene symbols corresponding to expr_matrix columns.
-%   niche_config - (optional) Struct with field niche_markers.(niche_name).
-%                  Defaults to four solid-tumor functional states:
-%                  Hypoxic, Proliferating, Mesenchymal, Immune.
+%   gbm_network  - Network struct or table
+%   clusters     - [cells×1] cluster IDs or table with cluster column
+%   expr_matrix  - [cells×genes] expression matrix
+%   genes_table  - Table or cell array of gene symbols
+%   niche_config - (optional) struct with .niche_markers.(name) = {genes}
 %
 % Outputs:
-%   niche_results.niche_assignments - {cells×1} assigned niche per cell
+%   niche_results.niche_assignments - {cells×1} assigned niche
 %   niche_results.plasticity        - [cells×1] normalized entropy score
 %   niche_results.is_boundary       - [cells×1] logical boundary-cell flag
 %   niche_results.transition_counts - [niches×niches] boundary-cell matrix

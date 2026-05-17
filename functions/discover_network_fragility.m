@@ -1,43 +1,12 @@
 function fragility_results = discover_network_fragility(gbm_network, healthy_network, target_rankings)
-% DISCOVER_NETWORK_FRAGILITY  Quantify the robustness of the condition
-%   communication network to targeted gene removal and identify super-additive
-%   synergy pairs for combination therapy prioritization.
+% DISCOVER_NETWORK_FRAGILITY  Network percolation analysis, synergy scoring for
+%   gene-pair removal, and differential fragility vs reference network.
 %
-% Analysis components
-% -------------------
-%   Percolation analysis
-%     Simulates progressive random node removal and tracks the normalized
-%     size of the largest connected component (GCC) as a function of the
-%     fraction of nodes removed. The percolation threshold — the removal
-%     fraction at which the GCC collapses below 50% of its initial size —
-%     is reported as a summary fragility metric. Networks with low thresholds
-%     are fragile (easily fragmented); high thresholds indicate robustness.
-%
-%   Targeted synergy testing
-%     For each pair of high-priority target genes (from target_rankings), the
-%     function computes:
-%       - Individual disruption effect: fractional GCC reduction from removing
-%         each gene alone.
-%       - Combined disruption effect: fractional GCC reduction from removing
-%         both genes simultaneously.
-%       - Synergy score: (combined − expected_additive) / expected_additive
-%     Positive synergy indicates super-additive disruption (the pair works
-%     better together than the sum of their individual effects), identifying
-%     candidate combination therapy targets.
-%
-%   Differential fragility
-%     The condition percolation curve is compared to the reference network
-%     curve. Greater fragility in the condition network (lower percolation
-%     threshold) is consistent with the oncogenic rewiring hypothesis.
-%
-% Usage:
-%   fragility_results = discover_network_fragility(gbm_network, healthy_network, target_rankings)
+% fragility_results = discover_network_fragility(gbm_network, healthy_network, target_rankings)
 %
 % Inputs:
-%   gbm_network     - Condition communication network struct with fields
-%                     .ligands and .receptors.
-%   healthy_network - Reference communication network struct (same schema).
-%                     May be empty (create_empty_network()) for single-dataset
+%   gbm_network     - Condition network struct (.ligands, .receptors, ...)
+%   healthy_network - Reference network struct (or empty)
 %                     runs; differential analysis is skipped in that case.
 %   target_rankings - Table from rank_therapeutic_targets() used to select
 %                     the gene candidates for pairwise synergy testing.
