@@ -15,10 +15,12 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 
-OUT_PATH   = r"results\NEUROSCOPE_v52_figures.pdf"
-KANG_DIR   = r"results\kang2018\paper_figures"
-COVID_DIR  = r"results\covid_atlas\paper_figures"
-IMG_WIDTH  = 6.2 * inch
+OUT_PATH    = r"results\NEUROSCOPE_v52_figures.pdf"
+KANG_DIR    = r"results\kang2018\paper_figures"
+COVID_DIR   = r"results\covid_atlas\paper_figures"
+LUPUS_DIR   = r"results\lupus\paper_figures"
+SMILLIE_DIR = r"results\smillie2019\paper_figures"
+IMG_WIDTH   = 6.2 * inch
 
 # ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -94,19 +96,25 @@ story.append(Paragraph(
     ParagraphStyle("intro", parent=legend_style, alignment=TA_CENTER, fontSize=10)))
 story.append(Spacer(1, 0.2 * inch))
 
-# Summary table
+# Summary table — all 4 benchmarks
 sum_data = [
-    ["", "Kang 2018 (Benchmark 1)", "COVID Atlas (Benchmark 2)"],
-    ["Dataset", "Kang et al. 2018 PBMC, GSE96583", "Stephenson et al. 2021"],
-    ["Condition", "IFN-β stimulation", "COVID-19 severe / mild / healthy"],
-    ["Pseudobulk samples", "n = 16  (8 donors × 2 conditions)", "n = 124 donors"],
-    ["Cells", "24,594", "24,284"],
-    ["Cell types", "8 (CD4T, CD8T, B, NK, Mono ×2, DC, MK)", "7"],
-    ["L-R pairs tested", "9", "127"],
-    ["KSG-significant (FDR<0.05)", "5 / 9  (56%)", "49 / 127  (39%)"],
-    ["Invisible to CellChat", "5 / 5  (100%)", "20 / 49  (41%)"],
-    ["Zero-floor explains", "4 / 5", "18 / 20"],
-    ["Fisher OR (vs CellChat)", "0.000  (p = 0.0079)", "0.060  (p = 0.0008)"],
+    ["", "Kang 2018\n(Benchmark 1)", "COVID Atlas\n(Benchmark 2)",
+     "Lupus PBMC\n(Benchmark 3)", "Smillie UC Colon\n(Benchmark 4)"],
+    ["Reference", "Kang et al. 2018\nGSE96583", "Stephenson et al. 2021",
+     "Perez et al. 2022", "Smillie et al. 2019"],
+    ["Tissue", "PBMC", "PBMC", "PBMC", "Colon (non-blood)"],
+    ["Condition", "IFN-β stimulation", "COVID-19 severity",
+     "SLE vs. healthy", "UC vs. healthy"],
+    ["Donors / samples", "n=16 pseudobulk\n(8 donors × 2)", "n=124 donors",
+     "n=162 donors\n(88 SLE + 49 ctrl)", "~30 donors\n(18 UC + 12 ctrl)"],
+    ["KSG-sig (FDR<0.05)", "5 / 9  (56%)", "49 / 127  (39%)",
+     "Pending run", "Pending run"],
+    ["Invisible to CellChat", "5 / 5  (100%)", "20 / 49  (41%)",
+     "Pending run", "Pending run"],
+    ["Fisher OR vs CellChat", "0.000  (p=0.0079)", "0.060  (p=0.0008)",
+     "Pending run", "Pending run"],
+    ["2SLS causal validated", "0 / 9", "1 / 127",
+     "Expected: higher\n(n=162 donors)", "Pending run"],
 ]
 sum_style = TableStyle([
     ("BACKGROUND",  (0,0), (-1,0),  colors.HexColor("#1a3a5c")),
@@ -115,14 +123,22 @@ sum_style = TableStyle([
     ("BACKGROUND",  (0,1), (0,-1),  colors.HexColor("#e8eef4")),
     ("FONTNAME",    (0,1), (0,-1),  "Helvetica-Bold"),
     ("ROWBACKGROUNDS", (1,1), (-1,-1), [colors.white, colors.HexColor("#f7f9fb")]),
-    ("FONTSIZE",    (0,0), (-1,-1), 8),
+    ("FONTSIZE",    (0,0), (-1,-1), 7.5),
     ("GRID",        (0,0), (-1,-1), 0.4, colors.HexColor("#cccccc")),
     ("VALIGN",      (0,0), (-1,-1), "MIDDLE"),
     ("TOPPADDING",  (0,0), (-1,-1), 4),
     ("BOTTOMPADDING",(0,0),(-1,-1), 4),
-    ("LEFTPADDING", (0,0), (-1,-1), 6),
+    ("LEFTPADDING", (0,0), (-1,-1), 5),
 ])
-story.append(Table(sum_data, colWidths=[1.8*inch, 2.6*inch, 2.6*inch], style=sum_style))
+story.append(Table(sum_data,
+                   colWidths=[1.55*inch, 1.35*inch, 1.35*inch, 1.35*inch, 1.35*inch],
+                   style=sum_style))
+
+story.append(Spacer(1, 0.15 * inch))
+story.append(Paragraph(
+    "Benchmarks 3 and 4 are pending data download + MATLAB run. "
+    "Run prep_lupus.py, run_lupus in MATLAB, then re-generate this document.",
+    note_style))
 story.append(PageBreak())
 
 # ── Figure 1 ─────────────────────────────────────────────────────────────────
@@ -424,6 +440,104 @@ story += stat_block([
 ])
 story.append(PageBreak())
 
+# ── Figure 6 — Benchmarks 3 & 4 placeholders ─────────────────────────────────
+story.append(Paragraph("Figure 6 — Benchmark 3: Lupus PBMC (Perez et al. 2022, n = 162 donors)", section_style))
+story.append(hr())
+story.append(placeholder(
+    "Figure 6A pending: run prep_lupus.py then run_lupus.m in MATLAB. "
+    "Expected: tight bootstrap CIs from n=162 donors; stronger 2SLS causal power. "
+    "Predicted top L-R axes: IFN signature (CXCL10→CXCR3, IFNG→IFNGR1), "
+    "complement (C1Q→LRP1), and Fc-receptor pathways."))
+story.append(Spacer(1, 0.1 * inch))
+story += stat_block([
+    "Dataset: Perez et al. 2022 (GSE174188 / CellxGene)",
+    "162 donors: 88 SLE + 49 healthy + misc",
+    "~1.2M cells, 9 PBMC cell types",
+    "Config: n_permutations=200, fdr_threshold=0.05, run_ml=false",
+    "Expected advantage: n=162 gives BCa CI width ~0.3 vs ~1.0 at n=16",
+    "Expected advantage: 2SLS first-stage F>10 feasible at n=162 donors",
+    "Run command: matlab -batch \"cd c:/arjun-project/neuroscope; run_lupus\"",
+])
+
+story.append(Spacer(1, 0.2 * inch))
+story.append(Paragraph("Figure 6B — Benchmark 4: UC Colon (Smillie et al. 2019, non-blood tissue)", fig_title_style))
+story.append(placeholder(
+    "Figure 6B pending: run prep_smillie2019.py then run_smillie2019.m. "
+    "First non-blood tissue benchmark — tests generalizability beyond PBMC. "
+    "Predicted top L-R axes: TGFB1→TGFBR2 (fibroblast-immune), WNT3→FZD7 (stem cell niche), "
+    "IL6→IL6R (acute phase), NOTCH1→DLL1 (epithelial differentiation)."))
+story.append(Spacer(1, 0.1 * inch))
+story += stat_block([
+    "Dataset: Smillie et al. 2019 (CellxGene)",
+    "~30 donors: 18 UC + 12 healthy",
+    "Cell types: Colonocyte, Goblet, Fibroblast, Endothelial, T, B, Myeloid",
+    "Config: n_permutations=200, min_donors_per_cluster=8",
+    "Run command: matlab -batch \"cd c:/arjun-project/neuroscope; run_smillie2019\"",
+])
+story.append(PageBreak())
+
+# ── Figure 7 — NicheNet comparison ───────────────────────────────────────────
+story.append(Paragraph("Figure 7 — NicheNet Comparison (Prior-Knowledge vs. KSG)", section_style))
+story.append(hr())
+story.append(Paragraph(
+    "<b>Figure 7.</b> Comparison of NEUROSCOPE (KSG channel capacity, data-driven) "
+    "against NicheNet (prior-knowledge ligand activity scoring, Browaeys et al. 2020 "
+    "Nat Methods). NicheNet ranks ligands by their ability to induce downstream target "
+    "gene sets in receiver cells via curated signaling networks — an orthogonal approach "
+    "to KSG mutual information.",
+    legend_style))
+story.append(placeholder(
+    "Figure 7 pending: run Rscript compare_nichenet.R. "
+    "Requires R 4.x, nichenetr, tidyverse. NicheNet prior networks downloaded from Zenodo. "
+    "Expected output: results/kang2018/comparison_nichenet_vs_neuroscope.csv"))
+story.append(Spacer(1, 0.1 * inch))
+story += stat_block([
+    "Script: compare_nichenet.R",
+    "Install: install.packages('BiocManager'); BiocManager::install('nichenetr')",
+    "Run: Rscript compare_nichenet.R",
+    "",
+    "NicheNet uses: Ligand -> TF -> target gene enrichment (AUPR over gene sets)",
+    "NEUROSCOPE uses: KSG MI channel capacity (statistical dependence, no prior network)",
+    "",
+    "Interpretation of overlap:",
+    "  Both agree:          high-confidence (two orthogonal methods converge)",
+    "  NEUROSCOPE-only:     info-theoretically active, absent from prior PPI networks",
+    "                       (novel interactions OR recently characterized)",
+    "  NicheNet-only:       prior-knowledge supported but statistically weak at n-donors",
+    "",
+    "Expected: partial overlap (~30-50%) — methods measure different things",
+    "Key test: do IFN-inducible chemokines (CXCL10, CXCL11) rank top in both?",
+])
+
+story.append(Spacer(1, 0.2 * inch))
+story.append(Paragraph("Figure 7 Supplemental — LIANA Multi-Method Comparison", fig_title_style))
+story.append(Paragraph(
+    "LIANA (Dimitrov et al. 2022 Nat Cell Biol) wraps CellPhoneDB, CellChat, NicheNet, "
+    "NATMI, and Connectome in a unified framework, outputting a consensus rank-aggregate "
+    "score. This enables a single-run comparison of NEUROSCOPE against all major tools.",
+    legend_style))
+story.append(placeholder(
+    "LIANA comparison pending: pip install liana anndata scanpy, then run python compare_liana.py. "
+    "Output: results/{dataset}/comparison_liana_vs_neuroscope.csv for each dataset."))
+story.append(Spacer(1, 0.1 * inch))
+story += stat_block([
+    "Script: compare_liana.py",
+    "Install: pip install liana>=1.0 anndata scanpy",
+    "Run: python compare_liana.py",
+    "",
+    "LIANA methods compared:",
+    "  CellPhoneDB:   mean(L) × mean(R), permutation — no trimean zero-floor",
+    "  CellChat:      trimean — zero-floor at >50% sparsity",
+    "  NicheNet:      prior-knowledge ligand activity scoring",
+    "  NATMI:         specificity-weighted product of mean expression",
+    "  Connectome:    expression-weight edge scoring",
+    "  rank_aggregate: consensus rank of all methods",
+    "",
+    "Pairs in NEUROSCOPE but absent from all LIANA methods:",
+    "  = strongest candidates for novel KSG-exclusive interactions",
+])
+story.append(PageBreak())
+
 # ── Methods summary ───────────────────────────────────────────────────────────
 story.append(Paragraph("Methods Summary", section_style))
 story.append(hr())
@@ -471,9 +585,23 @@ methods = [
      "CellPhoneDB v3 (Efremova et al. 2020 Nat Protoc). "
      "Mean(L in cluster A) × mean(R in cluster B), min 10% expression, "
      "1000 permutations. FDR < 0.05."),
+    ("<b>NicheNet comparison</b>",
+     "NicheNet v2 (Browaeys et al. 2020 Nat Methods; nichenetr R package). "
+     "Ligand activity = AUPR over receiver DE gene set enrichment via curated "
+     "TF-target, PPI, and signaling networks from Zenodo (record 7074291). "
+     "Run: Rscript compare_nichenet.R. "
+     "Top-20 NicheNet ligands compared to NEUROSCOPE FDR-significant pairs."),
+    ("<b>LIANA multi-method comparison</b>",
+     "LIANA (Dimitrov et al. 2022 Nat Cell Biol; liana-py ≥1.0). "
+     "Wraps CellPhoneDB, CellChat, NicheNet, NATMI, and Connectome. "
+     "rank_aggregate: consensus Borda-count rank across all methods. "
+     "expr_prop = 0.1 (min 10% expressing cells). "
+     "Run: python compare_liana.py. "
+     "Install: pip install liana anndata scanpy."),
     ("<b>Software</b>",
      "MATLAB R2021b+. Statistics and Machine Learning Toolbox. "
-     "Python 3.x for data preparation (anndata, scanpy, scipy, numpy, pandas)."),
+     "Python 3.x for data preparation (anndata, scanpy, scipy, numpy, pandas, liana). "
+     "R 4.x for NicheNet comparison (nichenetr, tidyverse, Seurat)."),
 ]
 
 for title, body in methods:
@@ -486,9 +614,9 @@ for title, body in methods:
 story.append(Spacer(1, 0.2 * inch))
 story.append(hr())
 story.append(Paragraph(
-    "NEUROSCOPE v5.2  ·  Generated 2026-05-16  ·  "
-    "Figures generated by generate_paper_figures.m; "
-    "Fig3 requires MATLAB re-run after code update.",
+    "NEUROSCOPE v5.2  ·  Generated 2026-05-19  ·  "
+    "Benchmarks 1-2 complete. Benchmarks 3-4 and comparisons (NicheNet/LIANA) pending data prep. "
+    "Figs 3-4 require MATLAB re-run; Figs 6-7 require benchmark data prep + comparison scripts.",
     caption_style))
 
 # ── Build ─────────────────────────────────────────────────────────────────────
