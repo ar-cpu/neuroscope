@@ -21,14 +21,20 @@ identity = struct('ari', NaN, 'nmi', NaN, 'divergence', [], ...
                   'divergent_cells_table', table());
 
 % Validate inputs
-if ~isstruct(cell_comm_profiles) || ...
-   ~isfield(cell_comm_profiles, 'comm_cluster_assignments') || ...
-   isempty(cell_comm_profiles.comm_cluster_assignments)
-    fprintf('  Communication identity skipped: no comm_cluster_assignments in profiles.\n\n');
+% Accept either field name (comm_clusters is the canonical output field)
+cluster_field = '';
+for fn = {'comm_clusters', 'comm_cluster_assignments'}
+    if isfield(cell_comm_profiles, fn{1}) && ~isempty(cell_comm_profiles.(fn{1}))
+        cluster_field = fn{1};
+        break;
+    end
+end
+if ~isstruct(cell_comm_profiles) || isempty(cluster_field)
+    fprintf('  Communication identity skipped: no cluster assignments in profiles.\n\n');
     return;
 end
 
-comm_states    = cell_comm_profiles.comm_cluster_assignments(:);  % [n_cells × 1]
+comm_states    = cell_comm_profiles.(cluster_field)(:);  % [n_cells × 1]
 trans_clusters = cell_metadata.Cluster(:);                        % [n_cells × 1]
 n_cells        = length(comm_states);
 

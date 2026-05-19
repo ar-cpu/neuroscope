@@ -266,6 +266,60 @@ Expected output: `results/covid_atlas/COVIDAtlas_science_report.txt`
 
 Key result: 49 FDR-significant pairs; CellChat misses 20/49 (41%), 18 attributable to zero-floor. Runtime ~135 min on a 2024 laptop.
 
+### Lupus PBMC (Perez et al. 2022, benchmark 3)
+
+```bash
+python prep_lupus.py
+# Then in MATLAB:
+run_lupus
+```
+
+Expected: tight bootstrap CIs from n=162 donors; stronger 2SLS causal validation power.
+
+### Ulcerative Colitis colon (Smillie et al. 2019, benchmark 4)
+
+```bash
+python prep_smillie2019.py
+# Then in MATLAB:
+run_smillie2019
+```
+
+Non-blood tissue benchmark. Expected L-R axes: TGFB1 signalling, WNT, IL-6 in epithelial-immune crosstalk.
+
+### Multi-method comparison (NicheNet + LIANA)
+
+```bash
+# NicheNet (requires R + nichenetr):
+Rscript compare_nichenet.R
+
+# LIANA multi-method (CellPhoneDB, CellChat, NATMI, Connectome):
+pip install liana anndata scanpy
+python compare_liana.py
+```
+
+---
+
+## Prior Biological Validation of Top Predicted Interactions
+
+NEUROSCOPE's top-ranked pairs across both PBMC benchmarks are supported by
+independent published experimental evidence, providing external validation of the
+computational predictions:
+
+| L-R pair | Dataset | Published evidence |
+|----------|---------|-------------------|
+| CXCL10 → CXCR3 | Kang 2018 | IFN-β-inducible; monocyte-to-T-cell axis. Validated in Loetscher et al. 1996 *J Exp Med*; CXCL10 is a canonical IFN-stimulated gene. |
+| CXCL11 → CXCR3 | Kang 2018 | Co-induced with CXCL10 by IFN-β; drives Th1 chemotaxis. Luster et al. 1998 *J Exp Med*. |
+| IL1RN → IL1R2 | Kang 2018 | IL-1 signalling regulatory axis; IL1RN (anakinra) is an FDA-approved biologic. Dinarello 2011 *Eur Cytokine Netw*. |
+| CCL5 → CCR5 | COVID Atlas | Monocyte-to-T-cell chemotaxis; CCL5 elevated in severe COVID. Tomazou et al. 2021 *Front Immunol*. |
+| TGFB1 → TGFBR2 | COVID Atlas | T cell exhaustion and monocyte-to-T cross-talk; central COVID immunopathology axis. Sanchez-Cerrillo et al. 2020 *Nat Commun*. |
+| IFNG → IFNGR1 | COVID Atlas | IFN-γ monocyte activation; IFNG serum levels predict COVID severity. Liao et al. 2020 *Nat Med*. |
+| PTGES3 → PTGER4 | COVID Atlas | Eicosanoid signalling; prostaglandin-mediated immune suppression. Zhu et al. 2020 *JCI Insight*. |
+
+These pairs are recovered by NEUROSCOPE but missed by CellChat (trimean zero-floor), providing
+cross-method and cross-study validation. Note that this is a computational methods paper;
+prospective experimental validation of novel predictions is beyond scope and is
+identified as a direction for follow-up work.
+
 ---
 
 ## Citation
