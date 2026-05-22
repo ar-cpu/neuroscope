@@ -26,7 +26,7 @@ import os, sys, time
 from collections import Counter
 
 # CellxGene Smillie 2019 — Ulcerative Colitis colon
-URL = "https://datasets.cellxgene.cziscience.com/444b5b74-4b23-4155-abe3-a61e1b74e722.h5ad"
+URL = "https://datasets.cellxgene.cziscience.com/61628778-2246-445a-9eb3-608d9209fc14.h5ad"  # colon immune, 152,509 cells, 545 MB, UC+healthy
 OUT_DIR  = "converted/smillie2019"
 GENE_TBL = "converted/gene_table.csv"
 LR_CSV   = "converted/interaction_table.csv"
@@ -48,6 +48,14 @@ def decode_col(f, path):
     if path not in f:
         return None
     d = f[path]
+    import h5py
+    # Newer AnnData format: obs/{col} is a group with 'codes' + 'categories'
+    if isinstance(d, h5py.Group):
+        if "codes" in d and "categories" in d:
+            cats  = [c.decode() if isinstance(c, bytes) else str(c) for c in d["categories"][()]]
+            codes = d["codes"][()]
+            return [cats[c] if c >= 0 else "" for c in codes]
+        return None
     if "categories" in d.attrs:
         cats = [c.decode() if isinstance(c, bytes) else str(c)
                 for c in d.attrs["categories"]]
@@ -108,14 +116,13 @@ probe_idx = np.linspace(0, n_cells_total - 1, PROBE_N, dtype=int)
 is_sparse_group = "X/data" in f
 
 if is_sparse_group:
-    data_all  = f["X/data"][()]
-    indices_a = f["X/indices"][()]
-    indptr_a  = f["X/indptr"][()]
+    indptr_a = f["X/indptr"][()]   # small - load fully
     probe_rows = []
     for ci in probe_idx:
-        s, e = indptr_a[ci], indptr_a[ci+1]
+        s, e = int(indptr_a[ci]), int(indptr_a[ci+1])
         row = np.zeros(n_genes_total, dtype=np.float32)
-        row[indices_a[s:e]] = data_all[s:e]
+        if e > s:
+            row[f["X/indices"][s:e]] = f["X/data"][s:e]
         probe_rows.append(row)
     probe_mat = np.vstack(probe_rows)
 else:
@@ -167,7 +174,7 @@ if cell_type and donor_id:
     cluster_donor_counts = cond_df.groupby("cell_type")["donor_id"].nunique()
     valid_clusters = cluster_donor_counts[
         cluster_donor_counts >= MIN_DONORS_PER_CLUSTER].index.tolist()
-    print(f"  Clusters with ≥{MIN_DONORS_PER_CLUSTER} donors: {len(valid_clusters)}")
+    print(f"  Clusters with >={MIN_DONORS_PER_CLUSTER} donors: {len(valid_clusters)}")
 
     keep_cells = []
     for cl in valid_clusters:
@@ -198,15 +205,26 @@ for i in range(0, len(keep_cells), chunk):
     if i % 5000 == 0:
         print(f"  {i:,}/{len(keep_cells):,} ({100*i/len(keep_cells):.0f}%)", flush=True)
     if is_sparse_group:
+        ci_first = int(batch_ci[0]);  ci_last = int(batch_ci[-1])
+        g_start  = int(indptr_a[ci_first])
+        g_end    = int(indptr_a[ci_last + 1])
+        if g_end > g_start:
+            b_data = f["X/data"][g_start:g_end]
+            b_idx  = f["X/indices"][g_start:g_end]
+        else:
+            b_data = np.array([], dtype=np.float32)
+            b_idx  = np.array([], dtype=np.int32)
         for local_j, ci in enumerate(batch_ci):
-            s, e = indptr_a[ci], indptr_a[ci+1]
-            ri = indices_a[s:e]; rv = data_all[s:e]
-            mask = np.isin(ri, keep_idx)
-            if mask.any():
-                mapped = np.searchsorted(keep_idx, ri[mask])
-                rows_list.append(np.full(mask.sum(), i+local_j, dtype=np.int32))
-                cols_list.append(mapped.astype(np.int32))
-                vals_list.append(rv[mask].astype(np.float32))
+            s = int(indptr_a[ci])     - g_start
+            e = int(indptr_a[ci + 1]) - g_start
+            if e > s:
+                ri = b_idx[s:e];  rv = b_data[s:e]
+                mask = np.isin(ri, keep_idx)
+                if mask.any():
+                    mapped = np.searchsorted(keep_idx, ri[mask])
+                    rows_list.append(np.full(mask.sum(), i+local_j, dtype=np.int32))
+                    cols_list.append(mapped.astype(np.int32))
+                    vals_list.append(rv[mask].astype(np.float32))
     else:
         block = np.asarray(f["X"][batch_ci.tolist(), :])[:, keep_idx]
         r, c = block.nonzero()

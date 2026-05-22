@@ -1,5 +1,5 @@
 NEUROSCOPE v5.2 — Scientific Discovery Report
-Generated: 26-Apr-2026 01:00:21
+Generated: 21-May-2026 22:20:16
 Dataset:   Kang2018
 Condition: PBMC_IFNbeta
 Reference: Reference  (empty = one-sample mode)
@@ -21,11 +21,13 @@ High-capacity channels (>0.5 bits):              45 (88.2%)
 Total L-R pairs tested:                          9
 Significant by strength (Wilcoxon, FDR<0.05):   5
 Significant by capacity (KSG MI, FDR<0.05):     5  [NOVEL TEST]
-Capacity-only enriched (missed by strength):     0  [KEY FINDING]
+Capacity-exclusive (cap sig, strength NS):       0
 
-Interpretation: Capacity-only enriched channels show elevated
-information transmission without proportional expression increase.
-These would be INVISIBLE to CellChat/NicheNet/CellPhoneDB.
+Interpretation: Capacity-exclusive channels transmit information
+without elevated co-expression — invisible to geometric mean scoring.
+Note: All KSG-significant pairs may still be invisible to CellChat
+via the trimean zero-floor; see CellChat comparison section below.
+(CellChat comparison data could not be read: Comparison between string and logical is not supported.)
 
 Top 10 Channels by Channel Capacity
 -----------------------------------
@@ -114,8 +116,8 @@ Bootstrap confidence intervals:
   500 resamples of the n paired donor observations with replacement.
   95% CI = [2.5th, 97.5th] percentile of bootstrap mi_norm distribution.
   Adaptive k used consistently across all bootstrap resamples.
-  Wide CIs at n=16 (~0.10-0.20 bits) reflect irreducible small-sample
-  variance; relative ranking between channels remains valid.
+  Wide CIs at n=16 reflect irreducible small-sample variance;
+  relative channel ranking is valid even when individual CI is wide.
 
 Differential testing: two-sample Wilcoxon rank-sum on per-cluster-pair
   strengths (strength test) and capacities (capacity test). BH-FDR.

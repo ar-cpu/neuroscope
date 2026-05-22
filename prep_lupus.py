@@ -23,7 +23,7 @@ from collections import defaultdict
 
 # CellxGene: Perez et al. 2022 Science — SLE PBMC
 # Collection: 436154da-bcf1-4130-9c8b-120ff9a888f2
-URL = "https://datasets.cellxgene.cziscience.com/97a17473-e2b1-4f31-a544-44a60773e2dd.h5ad"
+URL = "https://datasets.cellxgene.cziscience.com/b976e4cb-968a-4ee2-b11d-b3aa21d68d11.h5ad"  # 1.26M cells, 10.7 GB — full download required
 OUT_DIR  = "converted/lupus"
 GENE_TBL = "converted/gene_table.csv"
 LR_CSV   = "converted/interaction_table.csv"
@@ -49,6 +49,13 @@ def decode_col(f, path):
     if path not in f:
         return None
     d = f[path]
+    import h5py
+    if isinstance(d, h5py.Group):
+        if "codes" in d and "categories" in d:
+            cats  = [c.decode() if isinstance(c, bytes) else str(c) for c in d["categories"][()]]
+            codes = d["codes"][()]
+            return [cats[c] if c >= 0 else "" for c in codes]
+        return None
     if "categories" in d.attrs:
         cats = [c.decode() if isinstance(c, bytes) else str(c)
                 for c in d.attrs["categories"]]
@@ -138,15 +145,14 @@ X_key = "X" if "X" in f and hasattr(f["X"], "shape") else None
 is_sparse_group = X_key is None and "X/data" in f
 
 if is_sparse_group:
-    data_all  = f["X/data"][()]
-    indices_a = f["X/indices"][()]
-    indptr_a  = f["X/indptr"][()]
+    indptr_a  = f["X/indptr"][()]   # small: n_cells+1 ints
 
     probe_rows = []
     for ci in probe_idx:
-        start, end = indptr_a[ci], indptr_a[ci+1]
+        start, end = int(indptr_a[ci]), int(indptr_a[ci+1])
         row = np.zeros(n_genes_total, dtype=np.float32)
-        row[indices_a[start:end]] = data_all[start:end]
+        if end > start:
+            row[f["X/indices"][start:end]] = f["X/data"][start:end]
         probe_rows.append(row)
     probe_mat = np.vstack(probe_rows)
 else:
@@ -235,17 +241,28 @@ for i in range(0, len(keep_cells), chunk):
         print(f"  {i:,}/{len(keep_cells):,} ({pct:.0f}%)  {time.time()-t1:.0f}s", flush=True)
 
     if is_sparse_group:
+        # Batch range read: one HTTP request per contiguous cell span
+        ci_first = int(batch_ci[0]);  ci_last = int(batch_ci[-1])
+        g_start  = int(indptr_a[ci_first])
+        g_end    = int(indptr_a[ci_last + 1])
+        if g_end > g_start:
+            b_data = f["X/data"][g_start:g_end]
+            b_idx  = f["X/indices"][g_start:g_end]
+        else:
+            b_data = np.array([], dtype=np.float32)
+            b_idx  = np.array([], dtype=np.int32)
         for local_j, ci in enumerate(batch_ci):
-            start, end = indptr_a[ci], indptr_a[ci+1]
-            raw_idx  = indices_a[start:end]
-            raw_vals = data_all[start:end]
-            # keep only genes in keep_idx
-            mask = np.isin(raw_idx, keep_idx)
-            if mask.any():
-                mapped = np.searchsorted(keep_idx, raw_idx[mask])
-                rows_list.append(np.full(mask.sum(), i + local_j, dtype=np.int32))
-                cols_list.append(mapped.astype(np.int32))
-                vals_list.append(raw_vals[mask].astype(np.float32))
+            s = int(indptr_a[ci])     - g_start
+            e = int(indptr_a[ci + 1]) - g_start
+            if e > s:
+                raw_idx  = b_idx[s:e]
+                raw_vals = b_data[s:e]
+                mask = np.isin(raw_idx, keep_idx)
+                if mask.any():
+                    mapped = np.searchsorted(keep_idx, raw_idx[mask])
+                    rows_list.append(np.full(mask.sum(), i + local_j, dtype=np.int32))
+                    cols_list.append(mapped.astype(np.int32))
+                    vals_list.append(raw_vals[mask].astype(np.float32))
     else:
         block = f["X"][batch_ci.tolist(), :]
         block = np.asarray(block)[:, keep_idx]

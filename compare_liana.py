@@ -42,20 +42,32 @@ def load_dataset(mat_path, meta_path, gene_path):
     else:
         X = sp.csr_matrix(X)
 
-    meta = pd.read_csv(meta_path)
+    meta  = pd.read_csv(meta_path)
     genes = pd.read_csv(gene_path)["gene_name"].tolist()
 
-    if X.shape[0] != len(meta):
-        X = X.T  # try transpose if cells/genes are swapped
+    # Orient so rows = cells: pick whichever dimension is closer to len(meta)
+    n_cells = len(meta)
+    if abs(X.shape[1] - n_cells) < abs(X.shape[0] - n_cells):
+        X = X.T   # was genes × cells, transpose to cells × genes
+    X = sp.csr_matrix(X)
 
-    adata = ad.AnnData(X=X, obs=meta.set_index("CellID" if "CellID" in meta.columns
-                                                else meta.columns[0]),
+    # Trim to matching length if small mismatch (MATLAB sometimes pads)
+    if X.shape[0] > n_cells:
+        X = X[:n_cells, :]
+
+    id_col = "CellID" if "CellID" in meta.columns else meta.columns[0]
+    adata = ad.AnnData(X=X,
+                       obs=meta.set_index(id_col),
                        var=pd.DataFrame(index=genes))
     adata.var_names_make_unique()
 
-    # Set cluster column as cell type label
-    cluster_col = "cell_type" if "cell_type" in adata.obs.columns else "Cluster"
-    adata.obs["cell_type"] = adata.obs[cluster_col].astype(str)
+    # Resolve cell type column — prefer string names over integer cluster IDs
+    for col in ("CellTypeName", "cell_type", "cell_type_label", "Cluster"):
+        if col in adata.obs.columns:
+            adata.obs["cell_type"] = adata.obs[col].astype(str)
+            break
+    else:
+        adata.obs["cell_type"] = "unknown"
 
     print(f"  {adata.n_obs:,} cells × {adata.n_vars:,} genes")
     print(f"  Cell types: {adata.obs['cell_type'].nunique()}")
@@ -74,15 +86,21 @@ def run_liana_methods(adata, dataset_name, neuroscope_csv, out_dir):
 
     print(f"\nRunning LIANA on {dataset_name}...")
 
-    # Run all available methods
+    # Run all available methods — try rank_aggregate first, fall back to cellphonedb
+    results_df = None
     try:
-        li.mt.rank_aggregate.by_sample(
-            adata,
-            groupby="cell_type",
-            expr_prop=0.1,
-            verbose=False,
-            use_raw=False,
-        )
+        # liana >= 1.0 by_sample requires sample_key; try with donor_id
+        sample_col = next((c for c in ("donor_id","sample_id","subject") if c in adata.obs.columns), None)
+        if sample_col:
+            li.mt.rank_aggregate.by_sample(
+                adata, groupby="cell_type", sample_key=sample_col,
+                expr_prop=0.1, verbose=False, use_raw=False,
+            )
+        else:
+            li.mt.rank_aggregate(
+                adata, groupby="cell_type", expr_prop=0.1,
+                verbose=False, use_raw=False,
+            )
         results_df = adata.uns["liana_res"].copy()
         print(f"  LIANA rank_aggregate: {len(results_df)} interactions")
     except Exception as e:

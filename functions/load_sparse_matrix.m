@@ -33,14 +33,22 @@ function sparse_mat = load_sparse_matrix(filename)
 
     try
         data = load(filename);
-        if isfield(data, 'sparse_matrix')
-            sparse_mat = data.sparse_matrix;
-            fprintf('     Loaded standard format: %dx%d\n', size(sparse_mat));
-        elseif isfield(data, 'X')
-            sparse_mat = data.X;
-            fprintf('     Loaded standard format (X field): %dx%d\n', size(sparse_mat));
+        fields = fieldnames(data);
+        mat_field = '';
+        for preferred = {'sparse_matrix','X','expr_matrix'}
+            if isfield(data, preferred{1})
+                mat_field = preferred{1};
+                break;
+            end
+        end
+        if ~isempty(mat_field)
+            sparse_mat = data.(mat_field);
+            fprintf('     Loaded standard format (%s field): %dx%d\n', mat_field, size(sparse_mat));
+        elseif ~isempty(fields)
+            sparse_mat = data.(fields{1});
+            fprintf('     Loaded standard format (%s field): %dx%d\n', fields{1}, size(sparse_mat));
         else
-            error('No sparse_matrix or X field');
+            error('No sparse matrix field found in MAT file');
         end
     catch
         fprintf('     Loading HDF5 format...\n');
