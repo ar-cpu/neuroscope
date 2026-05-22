@@ -218,6 +218,14 @@ DATASETS = [
         "out_dir":        "results/covid_atlas",
     },
     {
+        "name":           "SmillieIBD",
+        "mat_path":       "converted/smillie2019/smillie_expression_sparse.mat",
+        "meta_path":      "converted/smillie2019/smillie_cell_metadata.csv",
+        "gene_path":      "converted/smillie2019/smillie_gene_names.csv",
+        "neuroscope_csv": "results/smillie2019/channel_rankings.csv",
+        "out_dir":        "results/smillie2019",
+    },
+    {
         "name":           "Lupus",
         "mat_path":       "converted/lupus/lupus_expression_sparse.mat",
         "meta_path":      "converted/lupus/lupus_cell_metadata.csv",
