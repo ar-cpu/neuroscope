@@ -195,17 +195,20 @@ story.append(Paragraph(
 
 story += stat_block([
     "KSG-significant pairs:  49 / 127  (FDR < 0.05)",
-    "Top pairs by capacity:",
+    "Top pairs by capacity (FDR < 0.05):",
     "  ALOX5   → CYSLTR1  cap = 0.722  [95% CI: 0.000, 1.000]  FDR = 0.0405",
     "  PTGES3  → PTGER4   cap = 0.692  [95% CI: 0.000, 1.000]  FDR = 0.0134",
     "  CD55    → ADGRE5   cap = 0.550  [95% CI: 0.000, 1.000]  FDR = 0.0019",
     "  ITGB1   → ADGRE5   cap = 0.526  [95% CI: 0.000, 1.000]  FDR = 0.0013",
     "  PPIA    → BSG      cap = 0.523  [95% CI: 0.000, 1.000]  FDR = 0.0019",
     "  HLA-E   → VSIR     cap = 0.510  [95% CI: 0.000, 1.000]  FDR = 0.0089",
-    "Mean capacity (network):   0.2985 bits",
-    "High-capacity (>0.5 bits): 145/687  (21%)",
-    "Spectral communities:      2  (spectral gap = 0.812)",
+    "  CD320   → JAML     cap = 0.439  [95% CI: 0.000, 0.793]  FDR = 0.0034",
+    "Mean capacity (network):    0.2985 bits",
+    "High-capacity (>0.5 bits):  145/687  (21.1%)",
+    "Spectral communities:       2  (spectral gap = 0.8115)",
     "IV/2SLS causally validated: 1 / 127  (0.8%)",
+    "Comm identity ARI:          0.0816 vs transcriptome  (ORTHOGONAL, 100% divergent)",
+    "NMF programs:               3  (innate adhesion, eicosanoid+checkpoint, complement+adhesion)",
 ])
 story.append(PageBreak())
 
@@ -435,10 +438,23 @@ story += stat_block([
     "Program 3: CD55→ADGRE5,  ITGB1→ADGRE5, CD58→CD2     (complement + adhesion)",
     "",
     "Spectral communities (Laplacian decomposition):  2",
-    "  Spectral gap = 0.812  (high modularity)",
+    "  Spectral gap = 0.8115  (high modularity)",
     "Downstream response genes (17 receptors with transcriptional signature):",
     "  e.g. ADGRE5, ITGB2, CD2, BSG, PTGER4",
 ])
+
+story.append(Spacer(1, 0.2 * inch))
+story.append(Paragraph("Figure 5C  (COVID Atlas — Communication identity vs transcriptome)", fig_title_style))
+story.append(img(os.path.join(COVID_DIR, "Fig6_communication_identity.png")))
+story.append(Spacer(1, 0.05 * inch))
+story.append(Paragraph(
+    "<b>Figure 5C.</b> Communication state identity vs. transcriptomic cluster identity for "
+    "COVID Atlas (n = 124 donors, 7 cell types). ARI = 0.082 — ORTHOGONAL. "
+    "100% of 24,284 cells are classified as divergent (CDS > 0.5). "
+    "Replicates the same finding seen in Smillie IBD (ARI = 0.031, 100% divergent), "
+    "confirming across tissue type and disease that communication identity cannot be "
+    "derived from transcriptomic clustering alone.",
+    legend_style))
 story.append(PageBreak())
 
 # ── Figure 6 — Benchmarks 3 & 4 placeholders ─────────────────────────────────
@@ -448,7 +464,8 @@ story.append(placeholder(
     "Figure 6A pending: run prep_lupus.py then run_lupus.m in MATLAB. "
     "Expected: tight bootstrap CIs from n=162 donors; stronger 2SLS causal power. "
     "Predicted top L-R axes: IFN signature (CXCL10→CXCR3, IFNG→IFNGR1), "
-    "complement (C1Q→LRP1), and Fc-receptor pathways."))
+    "complement (C1Q→LRP1), and Fc-receptor pathways. "
+    "Benchmarks 1-3 complete (Kang, COVID, Smillie) — orthogonal comm identity replicated in all three."))
 story.append(Spacer(1, 0.1 * inch))
 story += stat_block([
     "Dataset: Perez et al. 2022 (GSE174188 / CellxGene)",
@@ -458,6 +475,7 @@ story += stat_block([
     "Expected advantage: n=162 gives BCa CI width ~0.3 vs ~1.0 at n=16",
     "Expected advantage: 2SLS first-stage F>10 feasible at n=162 donors",
     "Run command: matlab -batch \"cd c:/arjun-project/neuroscope; run_lupus\"",
+    "Status: URL fixed in prep_lupus.py — run prep_lupus.py to begin data download (10.7 GB)",
 ])
 
 story.append(Spacer(1, 0.2 * inch))

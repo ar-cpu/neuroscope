@@ -1,5 +1,5 @@
 NEUROSCOPE v5.2 — Scientific Discovery Report
-Generated: 26-Apr-2026 19:13:16
+Generated: 23-May-2026 15:01:06
 Dataset:   COVIDAtlas
 Condition: PBMC_COVID19
 Reference: Reference  (empty = one-sample mode)
@@ -21,11 +21,13 @@ High-capacity channels (>0.5 bits):              145 (21.1%)
 Total L-R pairs tested:                          127
 Significant by strength (Wilcoxon, FDR<0.05):   49
 Significant by capacity (KSG MI, FDR<0.05):     49  [NOVEL TEST]
-Capacity-only enriched (missed by strength):     0  [KEY FINDING]
+Capacity-exclusive (cap sig, strength NS):       0
 
-Interpretation: Capacity-only enriched channels show elevated
-information transmission without proportional expression increase.
-These would be INVISIBLE to CellChat/NicheNet/CellPhoneDB.
+Interpretation: Capacity-exclusive channels transmit information
+without elevated co-expression — invisible to geometric mean scoring.
+Note: All KSG-significant pairs may still be invisible to CellChat
+via the trimean zero-floor; see CellChat comparison section below.
+(CellChat comparison data could not be read: Comparison between string and logical is not supported.)
 
 Top 10 Channels by Channel Capacity
 -----------------------------------
@@ -97,7 +99,30 @@ more within the group than across groups.
 Communication states (k-means on L-R sending/receiving PCs):  14
 Transcriptomic clusters:                                      7
 
-Communication identity analysis not available (requires cell_comm_profiles).
+Adjusted Rand Index (comm_state vs trans_cluster):  0.0816
+Normalised Mutual Information:                       0.1466
+Interpretation:                                      Decoupled
+Divergent cells (CDS > 0.5):                        24284 / 24284  (100.0%)
+
+KEY FINDING: Communication identity is ORTHOGONAL to transcriptomic
+identity (ARI = 0.0816). This means a cell's communication behaviour
+CANNOT be predicted from its transcriptomic cluster membership alone.
+This population of 100.0% divergent cells is invisible to all
+conventional sc-RNA-seq clustering approaches.
+
+Top 10 most divergent cells:
+CellID                  TransCluster       CommState        CDS
+-----------------------------------------------------------------
+16182                              1               4     0.9995
+21826                              1               4     0.9995
+12996                              2               4     0.9989
+17967                              2               4     0.9989
+18348                              2               4     0.9989
+20009                              2               4     0.9989
+2036                               2               9     0.9983
+5664                               2               9     0.9983
+6457                               2               9     0.9983
+9202                               2               9     0.9983
 
 7. DOWNSTREAM TRANSCRIPTIONAL RESPONSE
 ======================================
@@ -122,8 +147,8 @@ Bootstrap confidence intervals:
   500 resamples of the n paired donor observations with replacement.
   95% CI = [2.5th, 97.5th] percentile of bootstrap mi_norm distribution.
   Adaptive k used consistently across all bootstrap resamples.
-  Wide CIs at n=16 (~0.10-0.20 bits) reflect irreducible small-sample
-  variance; relative ranking between channels remains valid.
+  Wide CIs at n=124 reflect irreducible small-sample variance;
+  relative channel ranking is valid even when individual CI is wide.
 
 Differential testing: two-sample Wilcoxon rank-sum on per-cluster-pair
   strengths (strength test) and capacities (capacity test). BH-FDR.

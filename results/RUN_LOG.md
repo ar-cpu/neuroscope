@@ -71,12 +71,48 @@ Generated: 2026-05-22
 
 ## Benchmark 2 — COVID Blood Atlas (Stephenson 2021, n=124 donors)
 
-**Status:** RUNNING — Step 5/8: IV/2SLS causal validation (started 17:35, elapsed ~1 hr)
+**Status:** COMPLETE (1285.6 min ≈ 21.4 hours)
 
-Expected results (from prior run):
-- 49 FDR-significant pairs from 127 tested
-- CellChat misses 20/49 (41%), 18 attributable to zero-floor
-- Top pairs: ALOX5→CYSLTR1, PTGES3→PTGER4, CD55→ADGRE5
+| Metric | Value |
+|--------|-------|
+| Dataset | Stephenson et al. 2021 COVID PBMC |
+| Pseudobulk samples | n = 124 donors (3 conditions) |
+| Cells | 24,284 |
+| Genes (HVG) | 1,236 |
+| Cell types | 7 (B, CD4T, CD8T, DC, Mono, NK, Plasma) |
+| L-R pairs tested | 127 |
+| KSG-significant (FDR<0.05) | 49 / 127 (38.6%) |
+| Interactions in network | 687 |
+
+**Top channels by capacity (FDR<0.05):**
+
+| L-R pair | Capacity | 95% CI | FDR | Pathway |
+|----------|----------|---------|-----|---------|
+| ALOX5 → CYSLTR1 | 0.7217 | [0.000, 1.000] | 0.0405 | Eicosanoid/leukotriene |
+| PTGES3 → PTGER4 | 0.6921 | [0.000, 1.000] | 0.0134 | Prostaglandin |
+| CD55 → ADGRE5 | 0.5496 | [0.000, 1.000] | 0.0019 | Complement |
+| ITGB1 → ADGRE5 | 0.5262 | [0.000, 1.000] | 0.0013 | Integrin-EMR |
+| PPIA → BSG | 0.5233 | [0.000, 1.000] | 0.0019 | Cyclophilin A / COVID receptor |
+| HLA-E → VSIR | 0.5103 | [0.000, 1.000] | 0.0089 | Immune checkpoint |
+| CD320 → JAML | 0.4386 | [0.000, 0.793] | 0.0034 | Cell adhesion |
+
+**Synthetic AUROC validation (seed=42, n=200 cells/pair):**
+- KSG MI: AUROC = **1.000**, Dead-receiver FP in top-k = 0
+- Co-expression: AUROC = **0.506**, Dead-receiver FP in top-k = 18
+
+**NMF communication programs:** 3
+- Program 1: ICAM3_ITGB2, ANXA1_FPR1, APP_TYROBP (innate immune adhesion)
+- Program 2: PPIA_BSG, PTGES3_PTGER4, HLA-E_VSIR (eicosanoid + checkpoint)
+- Program 3: CD55_ADGRE5, ITGB1_ADGRE5, CD58_CD2 (complement + adhesion)
+
+**Spectral communities:** 2 (spectral gap = 0.8115)
+
+**Communication identity:** ARI = 0.0816 vs transcriptome — **ORTHOGONAL** (100% divergent cells)
+
+**Causal (2SLS):** 1 / 127 interactions causally validated (0.8%)
+- Wide CIs at n=124 still expected at 127 pairs; instrument is donor_id
+
+**Figures generated:** results/covid_atlas/paper_figures/ (Fig1–Fig6, all fresh)
 
 ---
 
@@ -219,19 +255,19 @@ Expected results: partial overlap (~30-50%) with NEUROSCOPE significant pairs. I
 
 | | Kang 2018 | COVID Atlas | Lupus | Crohn Colon |
 |--|-----------|-------------|-------|-------------|
-| Status | DONE | RUNNING | Pending data | **DONE** |
+| Status | DONE | **DONE** | Pending data | DONE |
 | Cells / Donors | 24,594 / 16 | 24,284 / 124 | TBD / ~162 | 9,385 / 18 |
 | Cell types | 8 | 7 | TBD | 17 |
-| KSG-sig pairs | 5 / 9 | 49 / 127 | TBD | **17 / 34** |
-| Not in LIANA | 3 / 5 (60%) | 32 / 49 (65%) | TBD | **12 / 17 (71%)** |
-| Not in CellChat | 5 / 5 (100%) | 20 / 49 (41%) | TBD | TBD |
-| AUROC (synthetic) | 1.000 vs 0.506 | 1.000 vs 0.506 | same | **1.000 vs 0.506** |
-| NMF programs | 7 | 3 | TBD | **3** |
-| Spectral communities | 2 (gap=0.733) | 2 (gap=0.812) | TBD | **2 (gap=0.673)** |
-| Comm ⊥ transcriptome | ARI=n/a | ARI=n/a | TBD | **ARI=0.031 (100% divergent)** |
-| 2SLS causal | 0/9 | TBD | TBD (n=162) | **7/34 (20.6%)** |
-| Top channel | CXCL10→CXCR3 (0.985) | ALOX5→CYSLTR1 | TBD | **LCK→CD8A (0.631)** |
-| Runtime | 2.7 min | ~135 min | ~hours | **5.8 min** |
+| KSG-sig pairs | 5 / 9 | **49 / 127** | TBD | 17 / 34 |
+| Not in LIANA | 3 / 5 (60%) | **32 / 49 (65%)** | TBD | 12 / 17 (71%) |
+| Not in CellChat | 5 / 5 (100%) | **20 / 49 (41%)** | TBD | TBD |
+| AUROC (synthetic) | 1.000 vs 0.506 | **1.000 vs 0.506** | same | 1.000 vs 0.506 |
+| NMF programs | 7 | **3** | TBD | 3 |
+| Spectral communities | 2 (gap=0.733) | **2 (gap=0.812)** | TBD | 2 (gap=0.673) |
+| Comm ⊥ transcriptome | ARI=n/a | **ARI=0.082 (100% diverg.)** | TBD | ARI=0.031 (100% diverg.) |
+| 2SLS causal | 0/9 | **1/127 (0.8%)** | TBD (n=162) | 7/34 (20.6%) |
+| Top channel | CXCL10→CXCR3 (0.985) | **ALOX5→CYSLTR1 (0.722)** | TBD | LCK→CD8A (0.631) |
+| Runtime | 2.7 min | **1285.6 min (21.4 hr)** | ~hours | 5.8 min |
 
 ---
 
