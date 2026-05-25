@@ -163,13 +163,21 @@ probe_vars  = probe_mat.var(axis=0)
 eps = 1e-8
 
 import warnings
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    log_m = np.log(probe_means + eps)
-    log_v = np.log(probe_vars  + eps)
-    coeffs = np.polyfit(log_m, log_v, 2)
-    fitted = np.polyval(coeffs, log_m)
-    residuals = log_v - fitted
+# Only fit on genes expressed in at least 1 probe cell (avoids degenerate polyfit)
+expressed_mask = probe_means > 0
+residuals = np.zeros(len(probe_means))
+if expressed_mask.sum() >= 10:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        log_m = np.log(probe_means[expressed_mask] + eps)
+        log_v = np.log(probe_vars[expressed_mask]  + eps)
+        try:
+            coeffs = np.polyfit(log_m, log_v, 2)
+            fitted = np.polyval(coeffs, log_m)
+            residuals[expressed_mask] = log_v - fitted
+        except np.linalg.LinAlgError:
+            # Fallback: rank by variance directly
+            residuals[expressed_mask] = probe_vars[expressed_mask]
 
 top_hvg_idx = np.argsort(residuals)[::-1][:3000]
 keep_idx = np.union1d(top_hvg_idx, lr_keep_idx).astype(int)
@@ -202,7 +210,7 @@ if cell_type and donor_id:
     cond_df = df_meta[df_meta["is_condition"]].copy()
     cluster_donor_counts = cond_df.groupby("cell_type")["donor_id"].nunique()
     valid_clusters = cluster_donor_counts[cluster_donor_counts >= MIN_DONORS_PER_CLUSTER].index.tolist()
-    print(f"  Clusters with ≥{MIN_DONORS_PER_CLUSTER} donors: {len(valid_clusters)}")
+    print(f"  Clusters with >={MIN_DONORS_PER_CLUSTER} donors: {len(valid_clusters)}")
 
     keep_cells = []
     for cl in valid_clusters:
