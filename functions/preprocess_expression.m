@@ -115,9 +115,10 @@ for b = 1:n_batches
     else
         batch_counts = expr_matrix(batch_idx, :);
     end
-    batch_counts = double(batch_counts);
+    batch_counts = max(0, real(double(batch_counts)));  % clip signed-int / complex storage artifacts
 
     sf_batch   = size_factors(batch_idx);
+    sf_batch   = max(sf_batch, 1e-6);  % guard against zero/negative size factors
     batch_norm = bsxfun(@rdivide, batch_counts, sf_batch);
     norm_matrix_full(batch_idx, :) = single(log1p(batch_norm));
 end

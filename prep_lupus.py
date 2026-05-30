@@ -128,11 +128,16 @@ n_genes_total = len(gene_symbols)
 # ── Identify L-R genes to keep ────────────────────────────────────────────────
 print("\nIdentifying L-R genes in expression matrix...")
 lr_genes = set()
-if os.path.exists(LR_CSV):
+# Use gene_table.csv (hgnc_symbol column) — interaction_table.csv has IDs not gene names
+if os.path.exists(GENE_TBL):
+    gt_df = pd.read_csv(GENE_TBL)
+    for col in ["hgnc_symbol", "gene_name"]:
+        if col in gt_df.columns:
+            lr_genes.update(gt_df[col].dropna().astype(str).str.upper().tolist())
+elif os.path.exists(LR_CSV):
     lr_df = pd.read_csv(LR_CSV)
     for col in lr_df.columns:
-        vals = lr_df[col].dropna().astype(str).str.upper().tolist()
-        lr_genes.update(vals)
+        lr_genes.update(lr_df[col].dropna().astype(str).str.upper().tolist())
 
 gene_idx_map = {g: i for i, g in enumerate(gene_symbols)}
 lr_keep_idx  = sorted([gene_idx_map[g] for g in lr_genes if g in gene_idx_map])

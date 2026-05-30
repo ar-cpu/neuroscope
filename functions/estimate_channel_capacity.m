@@ -42,8 +42,8 @@ n_perm      = p.Results.n_perm;
 max_n       = p.Results.max_n;
 n_bootstrap = p.Results.n_bootstrap;
 
-X = double(full(X(:)));
-Y = double(full(Y(:)));
+X = real(double(full(X(:))));
+Y = real(double(full(Y(:))));
 
 ok = isfinite(X) & isfinite(Y);
 X  = X(ok);
@@ -180,7 +180,7 @@ XY = [X(:), Y(:)];
 % Robust standardization: IQR-scale rather than std, which is dominated by
 % outliers in zero-inflated scRNA-seq data. Fallback to std when IQR ~ 0.
 for col = 1:2
-    v   = XY(:, col);
+    v   = real(XY(:, col));
     iq  = iqr(v);
     if iq < 1e-12
         iq = std(v);

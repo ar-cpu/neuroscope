@@ -18,6 +18,8 @@ config.n_permutations = 200;
 config.fdr_threshold  = 0.05;
 config.run_ml         = false;
 config.random_seed    = 42;
+config.min_cells_pct       = 0.001;  % 0.1% = 40 cells; needed for large sparse dataset
+config.expression_threshold = 0.01;  % lower threshold for GP-smoothed sparse data
 
 fprintf('\n=== NEUROSCOPE v5.2 — Perez et al. 2022 SLE PBMC ===\n\n');
 fprintf('162 donors (88 SLE + 49 healthy)\n');

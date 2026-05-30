@@ -120,8 +120,12 @@ fprintf('=== Step 1b: Preprocessing ===\n\n');
 fprintf('Normalizing expression and selecting highly variable genes...\n');
 fprintf('(Raw counts contain noise from sequencing depth variation)\n\n');
 
+min_cells_pct = 0.01;
+if isfield(config, 'min_cells_pct')
+    min_cells_pct = config.min_cells_pct;
+end
 [expr_matrix, gene_names_struct, hvg_indices, size_factors] = preprocess_expression( ...
-    expr_matrix, gene_names, 'n_hvg', 3000, 'verbose', true);
+    expr_matrix, gene_names, 'n_hvg', 3000, 'min_cells', min_cells_pct, 'verbose', true);
 gene_names = gene_names_struct;
 fprintf('Preprocessing complete: %d cells x %d HVGs\n\n', size(expr_matrix,1), size(expr_matrix,2));
 
@@ -153,8 +157,12 @@ end
 fprintf('=== Step 2: Building communication network ===\n\n');
 
 t_net = tic;
+expr_threshold = 0.1;
+if isfield(config, 'expression_threshold')
+    expr_threshold = config.expression_threshold;
+end
 condition_network = build_communication_network( ...
-    expr_matrix, gene_names, cell_metadata, cellphonedb, config.dataset_name);
+    expr_matrix, gene_names, cell_metadata, cellphonedb, config.dataset_name, expr_threshold);
 fprintf('Network built in %.1f min\n', toc(t_net)/60);
 fprintf('  Interactions: %d\n', length(condition_network.weights));
 fprintf('  Unique ligands: %d\n', length(unique(condition_network.ligands)));

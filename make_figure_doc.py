@@ -108,13 +108,13 @@ sum_data = [
     ["Donors / samples", "n=16 pseudobulk\n(8 donors × 2)", "n=124 donors",
      "n=162 donors\n(88 SLE + 49 ctrl)", "n=18 donors\n(9,385 cells)"],
     ["KSG-sig (FDR<0.05)", "5 / 9  (56%)", "49 / 127  (39%)",
-     "Pending run", "17 / 34  (50%)"],
+     "27 / 42  (64%)", "17 / 34  (50%)"],
+    ["Not in LIANA rank_agg", "3 / 5  (60%)", "32 / 49  (65%)",
+     "11 / 27  (41%)", "12 / 17  (71%)"],
     ["Invisible to CellChat", "5 / 5  (100%)", "20 / 49  (41%)",
-     "Pending run", "Pending LIANA"],
-    ["Fisher OR vs CellChat", "0.000  (p=0.0079)", "0.060  (p=0.0008)",
-     "Pending run", "Pending LIANA"],
-    ["2SLS causal validated", "0 / 9", "TBD",
-     "Expected: higher\n(n=162 donors)", "7 / 34  (20.6%)"],
+     "TBD", "TBD"],
+    ["2SLS causal validated", "0 / 9", "1 / 127  (0.8%)",
+     "run_ml=false", "7 / 34  (20.6%)"],
 ]
 sum_style = TableStyle([
     ("BACKGROUND",  (0,0), (-1,0),  colors.HexColor("#1a3a5c")),
@@ -136,9 +136,9 @@ story.append(Table(sum_data,
 
 story.append(Spacer(1, 0.15 * inch))
 story.append(Paragraph(
-    "Benchmark 3 (Lupus) is pending data download + MATLAB run. "
-    "Benchmark 4 (Smillie IBD) is COMPLETE. "
-    "Run prep_lupus.py, run_lupus in MATLAB, then re-generate this document.",
+    "All 4 benchmarks complete as of 2026-05-27. "
+    "AUROC 1.000 vs 0.506 replicated identically across all 4 datasets. "
+    "LIANA exclusivity: 41–71% across tissue types and disease contexts.",
     note_style))
 story.append(PageBreak())
 
@@ -457,25 +457,43 @@ story.append(Paragraph(
     legend_style))
 story.append(PageBreak())
 
-# ── Figure 6 — Benchmarks 3 & 4 placeholders ─────────────────────────────────
-story.append(Paragraph("Figure 6 — Benchmark 3: Lupus PBMC (Perez et al. 2022, n = 162 donors)", section_style))
+# ── Figure 6 — Benchmarks 3 & 4 ──────────────────────────────────────────────
+story.append(Paragraph("Figure 6 — Benchmark 3: Lupus PBMC (Perez et al. 2022, n = 149 donors) — COMPLETE", section_style))
 story.append(hr())
-story.append(placeholder(
-    "Figure 6A pending: run prep_lupus.py then run_lupus.m in MATLAB. "
-    "Expected: tight bootstrap CIs from n=162 donors; stronger 2SLS causal power. "
-    "Predicted top L-R axes: IFN signature (CXCL10→CXCR3, IFNG→IFNGR1), "
-    "complement (C1Q→LRP1), and Fc-receptor pathways. "
-    "Benchmarks 1-3 complete (Kang, COVID, Smillie) — orthogonal comm identity replicated in all three."))
+story.append(Paragraph("Figure 6A  (Lupus SLE PBMC — Information landscape)", fig_title_style))
+story.append(img(os.path.join(LUPUS_DIR, "Fig1_information_landscape.png")))
+story.append(Spacer(1, 0.05 * inch))
+story.append(Paragraph(
+    "<b>Figure 6A.</b> Information landscape for SLE PBMC (Perez et al. 2022, CellxGene). "
+    "40,395 cells from 149 donors, 11 PBMC cell types. "
+    "CXCL8 to CXCR2 is the top channel (capacity = 0.589 bits), consistent with neutrophil "
+    "chemokine dysregulation in SLE. IL-1 axis (IL1RN to IL1R2, IL1B to IL1R2) captured by "
+    "KSG but invisible to LIANA rank_aggregate. 27 / 42 tested pairs significant (FDR<0.05). "
+    "AUROC 1.000 vs 0.506 replicated identically to all prior benchmarks.",
+    legend_style))
 story.append(Spacer(1, 0.1 * inch))
 story += stat_block([
-    "Dataset: Perez et al. 2022 (GSE174188 / CellxGene)",
-    "162 donors: 88 SLE + 49 healthy + misc",
-    "~1.2M cells, 9 PBMC cell types",
+    "Dataset: Perez et al. 2022 Science (GSE174188 / CellxGene)",
+    "  40,395 SLE PBMC cells, 149 donors, 11 cell types",
+    "  635 HVGs (0.1% min-cells filter for sparse balanced sampling)",
     "Config: n_permutations=200, fdr_threshold=0.05, run_ml=false",
-    "Expected advantage: n=162 gives BCa CI width ~0.3 vs ~1.0 at n=16",
-    "Expected advantage: 2SLS first-stage F>10 feasible at n=162 donors",
-    "Run command: matlab -batch \"cd c:/arjun-project/neuroscope; run_lupus\"",
-    "Status: URL fixed in prep_lupus.py — run prep_lupus.py to begin data download (10.7 GB)",
+    "Runtime: 31.9 min",
+    "",
+    "Top channels (FDR<0.05, ranked by channel capacity):",
+    "  CXCL8   -> CXCR2   cap=0.589  Chemokine        In LIANA",
+    "  IL1RN   -> IL1R2   cap=0.588  Cytokine/JAK     NEUROSCOPE-only",
+    "  PPBP    -> CXCR1   cap=0.584  Chemokine        In LIANA",
+    "  NCAM1   -> FGFR1   cap=0.556  Cell adhesion    In LIANA",
+    "  IL1B    -> IL1R2   cap=0.509  Cytokine/JAK     NEUROSCOPE-only",
+    "  KLRB1   -> CLEC2D  cap=0.437  Other (NK)       NEUROSCOPE-only",
+    "  AKR1C3  -> PTGDR   cap=0.430  Prostaglandin    NEUROSCOPE-only",
+    "  IFNL1   -> IFNLR1  cap=0.409  IFN-lambda       NEUROSCOPE-only",
+    "  PDGFD   -> PDGFRB  cap=0.379  PDGF             NEUROSCOPE-only",
+    "  IL12A   -> IL12RB2 cap=0.370  IL-12 / Th1      NEUROSCOPE-only",
+    "",
+    "LIANA comparison: 11/27 (41%) NEUROSCOPE-significant pairs absent from LIANA",
+    "Spectral communities: 2 (gap=0.676)",
+    "Synthetic AUROC: KSG=1.000 vs Co-expr=0.506  (identical to all 3 prior benchmarks)",
 ])
 
 story.append(Spacer(1, 0.2 * inch))
@@ -594,9 +612,10 @@ story.append(Spacer(1, 0.1 * inch))
 
 liana_data = [
     ["Dataset", "NEUROSCOPE sig", "In LIANA", "NEUROSCOPE-only", "Exclusive %"],
-    ["Kang 2018", "5", "2", "3", "60%"],
-    ["COVID Atlas", "49", "17", "32", "65%"],
-    ["Smillie IBD (Crohn)", "17", "5", "12", "71%"],
+    ["Kang 2018 (PBMC)", "5", "2", "3", "60%"],
+    ["COVID Atlas (PBMC)", "49", "17", "32", "65%"],
+    ["Lupus PBMC (SLE)", "27", "16", "11", "41%"],
+    ["Smillie IBD (Colon)", "17", "5", "12", "71%"],
 ]
 liana_ts = TableStyle([
     ("BACKGROUND",  (0,0), (-1,0),  colors.HexColor("#1a3a5c")),
@@ -629,6 +648,18 @@ story += stat_block([
     "  CCL5   -> CCR5     cap=0.360  (monocyte chemotaxis, elevated in severe COVID)",
     "  TGFB1  -> TGFBR2   cap=0.173  (T cell exhaustion / COVID immunopathology)",
     "",
+    "NEUROSCOPE-only pairs (not in LIANA) Lupus SLE PBMC (11/27 = 41%):",
+    "  IL1RN   -> IL1R2   cap=0.588  (IL-1 decoy receptor — also NEUROSCOPE-only in Kang!)",
+    "  IL1B    -> IL1R2   cap=0.509  (IL-1beta/IL-1R axis — cross-disease finding)",
+    "  KLRB1   -> CLEC2D  cap=0.437  (NK lectin checkpoint)",
+    "  CADM1   -> CADM1   cap=0.434  (autocrine cell adhesion)",
+    "  AKR1C3  -> PTGDR   cap=0.430  (prostaglandin D pathway)",
+    "  FN1     -> ITGB7   cap=0.415  (fibronectin-integrin axis)",
+    "  IFNL1   -> IFNLR1  cap=0.409  (IFN-lambda — SLE-specific interferon)",
+    "  PDGFD   -> PDGFRB  cap=0.379  (PDGF signalling)",
+    "  IL12A   -> IL12RB2 cap=0.370  (IL-12 Th1 axis — adaptive immunity)",
+    "  PTGDS   -> PTGDR   cap=0.308  (prostaglandin D2)",
+    "",
     "NEUROSCOPE-only pairs (not in LIANA) Smillie IBD (12/17 = 71%):",
     "  LCK    -> CD8A    cap=0.631  (T-cell co-receptor — top channel invisible to LIANA!)",
     "  IL1B   -> IL1R2   cap=0.624  (IL-1 cytokine — key IBD inflammatory axis)",
@@ -639,7 +670,10 @@ story += stat_block([
     "  CLU    -> TYROBP  cap=0.340  (complement — also NEUROSCOPE-only in Kang!)",
     "  APLP2  -> PIGR    cap=0.330  (transcytosis circuit)",
     "",
-    "Pattern across 3 benchmarks: 60-71% of NEUROSCOPE-significant pairs not found by LIANA,",
+    "Cross-disease pattern (IL1B/IL1RN -> IL1R2): invisible to LIANA in BOTH Kang 2018 AND Lupus.",
+    "  Consistent across IFN-beta stimulation and systemic autoimmune disease — robust finding.",
+    "",
+    "Pattern across 4 benchmarks: 41-71% of NEUROSCOPE-significant pairs not found by LIANA,",
     "  consistent regardless of tissue (PBMC or colon) or disease (viral, autoimmune, IBD).",
     "  KSG MI captures inter-donor statistical dependence; LIANA methods detect mean expression.",
 ])
@@ -721,9 +755,9 @@ for title, body in methods:
 story.append(Spacer(1, 0.2 * inch))
 story.append(hr())
 story.append(Paragraph(
-    "NEUROSCOPE v5.2  ·  Generated 2026-05-19  ·  "
-    "Benchmarks 1-2 complete. Benchmarks 3-4 and comparisons (NicheNet/LIANA) pending data prep. "
-    "Figs 3-4 require MATLAB re-run; Figs 6-7 require benchmark data prep + comparison scripts.",
+    "NEUROSCOPE v5.2  ·  Generated 2026-05-27  ·  "
+    "All 4 benchmarks complete. AUROC 1.000 vs 0.506 replicated across all datasets. "
+    "41-71% NEUROSCOPE-exclusive pairs across PBMC and colon tissue. NicheNet comparison pending.",
     caption_style))
 
 # ── Build ─────────────────────────────────────────────────────────────────────

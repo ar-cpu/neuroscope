@@ -1,0 +1,116 @@
+NEUROSCOPE v5.2 — Scientific Discovery Report
+Generated: 27-May-2026 18:46:31
+Dataset:   Lupus
+Condition: SLE
+Reference: Reference  (empty = one-sample mode)
+FDR cutoff: 0.05
+============================================================
+
+1. COMMUNICATION NETWORK OVERVIEW
+=================================
+Total L-R interactions (channel capacity > 0):  572
+Unique ligands:                                  22
+Unique receptors:                                17
+Mean channel capacity:                           NaN bits
+Median channel capacity:                         NaN bits
+High-capacity channels (>0.1 bits):              464 (81.1%)
+High-capacity channels (>0.5 bits):              222 (38.8%)
+
+2. DIFFERENTIAL CHANNEL ANALYSIS
+================================
+Total L-R pairs tested:                          27
+Significant by strength (Wilcoxon, FDR<0.05):   27
+Significant by capacity (KSG MI, FDR<0.05):     27  [NOVEL TEST]
+Capacity-exclusive (cap sig, strength NS):       0
+
+Interpretation: Capacity-exclusive channels transmit information
+without elevated co-expression — invisible to geometric mean scoring.
+Note: All KSG-significant pairs may still be invisible to CellChat
+via the trimean zero-floor; see CellChat comparison section below.
+
+Top 10 Channels by Channel Capacity
+-----------------------------------
+Ligand               Receptor             Capacity          95%CI  FDR_cap  FDR_str              Pathway
+-------------------------------------------------------------------------------------------------------------------
+CXCL8                CXCR2                  0.5892  [0.036,0.825]   0.0001   0.0001            Chemokine
+IL1RN                IL1R2                  0.5877  [0.010,0.815]   0.0001   0.0001    Cytokine/JAK-STAT
+PPBP                 CXCR1                  0.5843  [0.038,0.836]   0.0001   0.0001            Chemokine
+PPBP                 CXCR2                  0.5721  [0.060,0.821]   0.0001   0.0001            Chemokine
+NCAM1                FGFR1                  0.5557  [0.030,0.797]   0.0001   0.0001        Cell adhesion
+CCL20                CCR6                   0.5502  [0.015,0.794]   0.0001   0.0001            Chemokine
+THBS1                CD36                   0.5473  [0.020,0.783]   0.0001   0.0001                Other
+CXCL8                CXCR1                  0.5268  [0.030,0.827]   0.0001   0.0001            Chemokine
+IL1B                 IL1R2                  0.5088  [0.012,0.818]   0.0001   0.0001    Cytokine/JAK-STAT
+CD70                 CD27                   0.4941  [0.050,0.809]   0.0001   0.0001                Other
+NOTE: 10/10 top channels have 95% CI width >0.15 bits — expected at n=149
+
+Channel Type Distribution
+-------------------------
+  HighCapacity_Broadcast          3 (11.1%)
+  HighCapacity_Selective          10 (37.0%)
+  LowCapacity_Broadcast           8 (29.6%)
+  LowCapacity_Selective           6 (22.2%)
+
+Pathway Annotation (top 5)
+--------------------------
+  Chemokine                  11 channels
+  Other                      9 channels
+  Cell adhesion              3 channels
+  Cytokine/JAK-STAT          3 channels
+  PDGF                       1 channels
+
+3. CAUSAL INTERACTION VALIDATION (IV/2SLS)
+==========================================
+Causal validation data unavailable or not run.
+
+4. LATENT COMMUNICATION PROGRAMS (NMF)
+======================================
+Communication program data unavailable or not run.
+
+5. SPECTRAL COMMUNICATION COMMUNITIES
+=====================================
+Communities detected:  2
+Spectral gap:          0.6757  (larger = more modular)
+
+Interpretation: Spectral decomposition of the communication Laplacian
+reveals functional modules — groups of cell types that communicate
+more within the group than across groups.
+
+6. COMMUNICATION IDENTITY vs. TRANSCRIPTOMIC IDENTITY
+=====================================================
+Communication profile data unavailable.
+
+Communication identity analysis not available (requires cell_comm_profiles).
+
+7. DOWNSTREAM TRANSCRIPTIONAL RESPONSE
+======================================
+Downstream response data unavailable or not run.
+
+8. METHODS NOTE (for paper writing)
+===================================
+Channel capacity estimation: KSG k-NN mutual information estimator
+  (Kraskov, Stoegbauer & Grassberger 2004, Phys Rev E 69:066138)
+  I(X;Y) = psi(k) + psi(n) - <psi(nx+1) + psi(ny+1)>
+  Capacity = I(ligand ; response) / H(ligand)  [0..1]
+  Permutation test: 199 shuffles of Y, p = fraction(null >= observed)
+
+Bootstrap confidence intervals:
+  500 resamples of the n paired donor observations with replacement.
+  95% CI = [2.5th, 97.5th] percentile of bootstrap mi_norm distribution.
+  Adaptive k used consistently across all bootstrap resamples.
+  Wide CIs at n=149 reflect irreducible small-sample variance;
+  relative channel ranking is valid even when individual CI is wide.
+
+Differential testing: two-sample Wilcoxon rank-sum on per-cluster-pair
+  strengths (strength test) and capacities (capacity test). BH-FDR.
+
+Causal validation: instrumental variable / 2SLS regression.
+  Instrument: donor_id (natural experiment, analogous to MR in GWAS).
+  Weak instrument filter: first-stage F > 10.
+
+NMF: non-negative matrix factorization of the [cluster-pair × L-R]
+  communication tensor. Rank selected by elbow (<10% improvement).
+
+Normalization: library-size median-ratio (scran-style), log1p.
+HVG selection: degree-2 polynomial regression log(var)~log(mean);
+  top 3000 genes by residual variance.

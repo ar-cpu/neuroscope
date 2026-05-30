@@ -1,4 +1,4 @@
-function network = build_communication_network(expr_matrix, genes_table, clusters_table, cellphonedb, dataset_name)
+function network = build_communication_network(expr_matrix, genes_table, clusters_table, cellphonedb, dataset_name, varargin)
 % BUILD_COMMUNICATION_NETWORK  Construct a weighted directed ligand-receptor
 %   communication network from single-cell expression data.
 %
@@ -112,7 +112,7 @@ for start_idx = 1:batch_size:n_clusters
     end
 end
 
-cluster_means = cluster_means_smooth;
+cluster_means = real(cluster_means_smooth);
 fprintf('  Smoothing complete\n');
 
 % Shannon entropy specificity: 1 = cluster-exclusive, 0 = ubiquitous.
@@ -173,6 +173,9 @@ network.ci_upper          = [];   % bootstrap 97.5th percentile of channel_capac
 network.mi_mode           = {};   % 'ksg_cross_sample' or 'spearman_copula'
 
 expression_threshold = 0.1;
+if ~isempty(varargin) && isnumeric(varargin{1})
+    expression_threshold = varargin{1};
+end
 
 interaction_count = 0;
 tested_count = 0;
@@ -247,6 +250,10 @@ for lr_idx = 1:n_lr_pairs
                 valid = (X_samp > 0) | (Y_samp > 0);
                 X_samp = X_samp(valid);
                 Y_samp = Y_samp(valid);
+
+                if numel(X_samp) < 5
+                    continue;  % too few valid donors for KSG
+                end
 
                 [capacity, mi_score, ~, ~, ci_lower, ci_upper] = estimate_channel_capacity( ...
                     X_samp, Y_samp, 'n_perm', 0, 'n_bootstrap', 500);
