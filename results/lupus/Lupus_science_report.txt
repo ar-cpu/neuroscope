@@ -1,5 +1,5 @@
 NEUROSCOPE v5.2 — Scientific Discovery Report
-Generated: 27-May-2026 18:46:31
+Generated: 30-May-2026 14:38:50
 Dataset:   Lupus
 Condition: SLE
 Reference: Reference  (empty = one-sample mode)
@@ -8,69 +8,87 @@ FDR cutoff: 0.05
 
 1. COMMUNICATION NETWORK OVERVIEW
 =================================
-Total L-R interactions (channel capacity > 0):  572
-Unique ligands:                                  22
-Unique receptors:                                17
+Total L-R interactions (channel capacity > 0):  1250
+Unique ligands:                                  31
+Unique receptors:                                25
 Mean channel capacity:                           NaN bits
 Median channel capacity:                         NaN bits
-High-capacity channels (>0.1 bits):              464 (81.1%)
-High-capacity channels (>0.5 bits):              222 (38.8%)
+High-capacity channels (>0.1 bits):              856 (68.5%)
+High-capacity channels (>0.5 bits):              173 (13.8%)
 
 2. DIFFERENTIAL CHANNEL ANALYSIS
 ================================
-Total L-R pairs tested:                          27
-Significant by strength (Wilcoxon, FDR<0.05):   27
-Significant by capacity (KSG MI, FDR<0.05):     27  [NOVEL TEST]
+Total L-R pairs tested:                          40
+Significant by strength (Wilcoxon, FDR<0.05):   33
+Significant by capacity (KSG MI, FDR<0.05):     33  [NOVEL TEST]
 Capacity-exclusive (cap sig, strength NS):       0
 
 Interpretation: Capacity-exclusive channels transmit information
 without elevated co-expression — invisible to geometric mean scoring.
 Note: All KSG-significant pairs may still be invisible to CellChat
 via the trimean zero-floor; see CellChat comparison section below.
+(CellChat comparison data could not be read: Unrecognized table variable name 'Category'.)
 
 Top 10 Channels by Channel Capacity
 -----------------------------------
 Ligand               Receptor             Capacity          95%CI  FDR_cap  FDR_str              Pathway
 -------------------------------------------------------------------------------------------------------------------
-CXCL8                CXCR2                  0.5892  [0.036,0.825]   0.0001   0.0001            Chemokine
-IL1RN                IL1R2                  0.5877  [0.010,0.815]   0.0001   0.0001    Cytokine/JAK-STAT
-PPBP                 CXCR1                  0.5843  [0.038,0.836]   0.0001   0.0001            Chemokine
-PPBP                 CXCR2                  0.5721  [0.060,0.821]   0.0001   0.0001            Chemokine
-NCAM1                FGFR1                  0.5557  [0.030,0.797]   0.0001   0.0001        Cell adhesion
-CCL20                CCR6                   0.5502  [0.015,0.794]   0.0001   0.0001            Chemokine
-THBS1                CD36                   0.5473  [0.020,0.783]   0.0001   0.0001                Other
-CXCL8                CXCR1                  0.5268  [0.030,0.827]   0.0001   0.0001            Chemokine
-IL1B                 IL1R2                  0.5088  [0.012,0.818]   0.0001   0.0001    Cytokine/JAK-STAT
-CD70                 CD27                   0.4941  [0.050,0.809]   0.0001   0.0001                Other
+IFNL1                IFNLR1                 0.6908  [0.273,1.000]   0.0031   0.0031                Other
+SCT                  VIPR2                  0.6296  [0.077,0.901]   0.0052   0.0052                Other
+PDGFD                PDGFRB                 0.5829  [0.000,0.928]   0.0016   0.0016                 PDGF
+IL12A                IL12RB2                0.5469  [0.092,0.907]   0.0101   0.0101    Cytokine/JAK-STAT
+CXCL2                CXCR2                  0.5336  [0.079,0.958]   0.0189   0.0189            Chemokine
+IL1RN                IL1R2                  0.4745  [0.048,0.797]   0.0000   0.0000    Cytokine/JAK-STAT
+NECTIN3              TIGIT                  0.4649  [0.092,0.883]   0.0003   0.0003                Other
+PTGDS                PTGDR                  0.4385  [0.130,0.764]   0.0000   0.0000                Other
+PPBP                 CXCR2                  0.4247  [0.007,0.678]   0.0052   0.0052            Chemokine
+AKR1C3               PTGDR                  0.3824  [0.104,0.632]   0.0000   0.0000                Other
 NOTE: 10/10 top channels have 95% CI width >0.15 bits — expected at n=149
 
 Channel Type Distribution
 -------------------------
-  HighCapacity_Broadcast          3 (11.1%)
-  HighCapacity_Selective          10 (37.0%)
-  LowCapacity_Broadcast           8 (29.6%)
-  LowCapacity_Selective           6 (22.2%)
+  HighCapacity_Broadcast          4 (10.0%)
+  HighCapacity_Selective          16 (40.0%)
+  LowCapacity_Broadcast           16 (40.0%)
+  LowCapacity_Selective           4 (10.0%)
 
 Pathway Annotation (top 5)
 --------------------------
-  Chemokine                  11 channels
-  Other                      9 channels
+  Other                      21 channels
+  Chemokine                  9 channels
+  Cytokine/JAK-STAT          6 channels
   Cell adhesion              3 channels
-  Cytokine/JAK-STAT          3 channels
   PDGF                       1 channels
 
 3. CAUSAL INTERACTION VALIDATION (IV/2SLS)
 ==========================================
-Causal validation data unavailable or not run.
+Instrument type:        donor
+Interactions tested:    40
+Causally validated:     1 (2.5%)
+
+Interpretation: Causal validation uses donor_id as a natural
+instrumental variable (analogous to Mendelian Randomization).
+A causally validated interaction means: natural inter-donor variation
+in ligand level predicts receptor-response variation in receiver cells,
+independently of shared confounders (batch, cell state, etc.).
 
 4. LATENT COMMUNICATION PROGRAMS (NMF)
 ======================================
-Communication program data unavailable or not run.
+NMF rank selected:  3 programs
+
+Top L-R pairs per program:
+  Program 1: KLRB1_CLEC2D, CLU_TYROBP, CD40LG_ITGB1
+  Program 2: APOA1_TYROBP, IL1B_IL1R2, IL1RN_IL1R2
+  Program 3: PTGDS_PTGDR, AKR1C3_PTGDR, THBS1_CD36
+
+Interpretation: NMF decomposes the [cluster-pair × L-R] communication
+tensor into co-regulated interaction modules. Each program represents
+a coordinated signaling circuit operating across multiple cell types.
 
 5. SPECTRAL COMMUNICATION COMMUNITIES
 =====================================
 Communities detected:  2
-Spectral gap:          0.6757  (larger = more modular)
+Spectral gap:          0.8914  (larger = more modular)
 
 Interpretation: Spectral decomposition of the communication Laplacian
 reveals functional modules — groups of cell types that communicate
@@ -78,13 +96,44 @@ more within the group than across groups.
 
 6. COMMUNICATION IDENTITY vs. TRANSCRIPTOMIC IDENTITY
 =====================================================
-Communication profile data unavailable.
+Communication states (k-means on L-R sending/receiving PCs):  22
+Transcriptomic clusters:                                      11
 
-Communication identity analysis not available (requires cell_comm_profiles).
+Adjusted Rand Index (comm_state vs trans_cluster):  0.0083
+Normalised Mutual Information:                       0.0766
+Interpretation:                                      Decoupled
+Divergent cells (CDS > 0.5):                        23504 / 40395  (58.2%)
+
+KEY FINDING: Communication identity is ORTHOGONAL to transcriptomic
+identity (ARI = 0.0083). This means a cell's communication behaviour
+CANNOT be predicted from its transcriptomic cluster membership alone.
+This population of 58.2% divergent cells is invisible to all
+conventional sc-RNA-seq clustering approaches.
+
+Top 10 most divergent cells:
+CellID                  TransCluster       CommState        CDS
+-----------------------------------------------------------------
+6391                               2              20     0.9998
+35109                              6              20     0.9998
+23258                              5              18     0.9998
+11282                              7               8     0.9997
+627                                5              11     0.9996
+29963                              5              11     0.9996
+2578                               9              11     0.9995
+6478                               6              11     0.9994
+10143                              6              11     0.9994
+39912                              6              11     0.9994
 
 7. DOWNSTREAM TRANSCRIPTIONAL RESPONSE
 ======================================
-Downstream response data unavailable or not run.
+Receptors profiled:             25
+With downstream response genes: 1
+Using receptor fallback:        24
+
+Interpretation: For receptors with downstream response genes, channel
+capacity is computed on the PC1 of the response gene matrix rather
+than receptor expression. This measures actual transcriptional change
+in receiver cells, not just receptor abundance.
 
 8. METHODS NOTE (for paper writing)
 ===================================

@@ -16,7 +16,7 @@ config.reference_meta_path = '';
 config.output_dir          = 'results/lupus';
 config.n_permutations = 200;
 config.fdr_threshold  = 0.05;
-config.run_ml         = false;
+config.run_ml         = true;
 config.random_seed    = 42;
 config.min_cells_pct       = 0.001;  % 0.1% = 40 cells; needed for large sparse dataset
 config.expression_threshold = 0.01;  % lower threshold for GP-smoothed sparse data

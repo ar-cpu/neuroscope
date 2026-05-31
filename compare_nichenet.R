@@ -1,200 +1,152 @@
-# compare_nichenet.R  —  NicheNet vs NEUROSCOPE comparison
+# compare_nichenet.R  —  NicheNet vs NEUROSCOPE comparison (all 4 benchmarks)
 #
-# Runs NicheNet on Kang 2018 and COVID Atlas to benchmark against NEUROSCOPE.
-# NicheNet uses prior-knowledge networks (TF-target, PPI, signaling) to rank
-# which ligands in sender cells most likely drive gene expression changes in
-# receiver cells. Unlike CellChat (trimean) or NEUROSCOPE (KSG MI), NicheNet
-# uses gene-set enrichment of downstream targets as the readout.
+# NicheNet uses prior-knowledge networks (TF-target, PPI, signaling) to score
+# ligand activity: AUPR of predicting receiver DE genes from ligand targets.
+# Unlike CellChat (trimean zero-floor) or NEUROSCOPE (KSG MI), NicheNet is
+# prior-knowledge-driven.
 #
-# Install once:
-#   install.packages("BiocManager")
-#   BiocManager::install("nichenetr")
-#   install.packages(c("tidyverse","Seurat"))
+# Approach: use NEUROSCOPE FDR-sig receptor genes as the "receiver gene set"
+# (since these are the genes that are actively coupled to their ligands).
+# Background = all genes in expression matrix. Candidate ligands = all genes
+# in the expression matrix that appear in NicheNet's LR network.
 #
-# Run: Rscript compare_nichenet.R
+# Prior networks downloaded from Zenodo record 7074291 (nichenetr v2).
+#
+# Install: Rscript install_nichenetr.R
+# Run:     Rscript compare_nichenet.R
 
 suppressPackageStartupMessages({
+  .libPaths(c("C:/Users/arjun/R/library", .libPaths()))
   library(nichenetr)
-  library(tidyverse)
+  library(dplyr)
 })
 
-cat("=== NicheNet vs NEUROSCOPE comparison ===\n\n")
+cat("=== NicheNet vs NEUROSCOPE comparison (all 4 benchmarks) ===\n\n")
 
-# ── Load NicheNet prior networks ──────────────────────────────────────────────
-cat("Loading NicheNet prior networks...\n")
-ligand_target_matrix   <- readRDS(url("https://zenodo.org/record/7074291/files/ligand_target_matrix_nsga2r_final.rds"))
-lr_network             <- readRDS(url("https://zenodo.org/record/7074291/files/lr_network_human_21122021.rds"))
-weighted_networks      <- readRDS(url("https://zenodo.org/record/7074291/files/weighted_networks_nsga2r_final.rds"))
+# ── Download / cache NicheNet prior networks ──────────────────────────────────
+nn_dir <- "converted/nichenet"
+dir.create(nn_dir, showWarnings=FALSE, recursive=TRUE)
 
-# ── Helper: run NicheNet for one dataset ──────────────────────────────────────
-run_nichenet <- function(expr_csv, meta_csv, neuroscope_csv, dataset_name,
-                         sender_celltypes, receiver_celltype,
-                         condition_col = "condition",
-                         condition_val = NULL) {
-
-  cat(sprintf("\n--- %s ---\n", dataset_name))
-
-  expr <- read.csv(expr_csv, row.names = 1, check.names = FALSE)
-  meta <- read.csv(meta_csv)
-
-  # Build Seurat-like expression (genes x cells)
-  cat(sprintf("  Expression: %d cells x %d genes\n", nrow(expr), ncol(expr)))
-
-  # Filter to condition if specified
-  if (!is.null(condition_val) && condition_col %in% colnames(meta)) {
-    keep <- meta[[condition_col]] == condition_val
-    meta <- meta[keep, ]
-    expr <- expr[keep, ]
+cache_rds <- function(path, url) {
+  if (!file.exists(path)) {
+    cat("  Downloading:", basename(path), "...\n")
+    download.file(url, path, mode="wb", quiet=TRUE)
   }
-
-  cluster_col <- if ("cell_type" %in% colnames(meta)) "cell_type" else "Cluster"
-  cat(sprintf("  Cell types: %s\n", paste(unique(meta[[cluster_col]]), collapse=", ")))
-
-  # Receiver cells: find DE genes (genes upregulated in receiver vs other clusters)
-  receiver_mask <- meta[[cluster_col]] %in% receiver_celltype
-  sender_mask   <- meta[[cluster_col]] %in% sender_celltypes
-
-  if (sum(receiver_mask) < 10 || sum(sender_mask) < 10) {
-    cat(sprintf("  Skipping: too few cells in receiver (%d) or senders (%d)\n",
-                sum(receiver_mask), sum(sender_mask)))
-    return(NULL)
-  }
-
-  # DE genes in receiver vs other clusters
-  expr_mat <- t(as.matrix(expr))   # genes x cells
-  receiver_expr <- expr_mat[, receiver_mask, drop=FALSE]
-  other_expr    <- expr_mat[, !receiver_mask, drop=FALSE]
-
-  # Wilcoxon to find geneset of interest (receiver upregulated genes)
-  de_pval <- apply(expr_mat, 1, function(row) {
-    tryCatch(wilcox.test(row[receiver_mask], row[!receiver_mask],
-                         alternative="greater")$p.value,
-             error=function(e) 1)
-  })
-  de_genes <- names(sort(de_pval)[1:min(500, length(de_pval))])
-  cat(sprintf("  DE genes in receiver: %d\n", length(de_genes)))
-
-  # NicheNet ligand activity
-  ligands_present <- intersect(rownames(ligand_target_matrix),
-                                colnames(expr_mat)[sender_mask])
-  cat(sprintf("  Ligands in sender cells: %d\n", length(ligands_present)))
-
-  if (length(ligands_present) == 0 || length(de_genes) == 0) {
-    cat("  Skipping: no overlap with NicheNet network.\n")
-    return(NULL)
-  }
-
-  ligand_activities <- predict_ligand_activities(
-    geneset            = de_genes,
-    background_expressed_genes = rownames(ligand_target_matrix)[
-      rowMeans(expr_mat > 0) > 0.05],
-    ligand_target_matrix = ligand_target_matrix,
-    potential_ligands  = ligands_present
-  )
-
-  ligand_activities <- ligand_activities %>%
-    arrange(desc(aupr_corrected)) %>%
-    mutate(rank_nichenet = row_number())
-
-  # Load NEUROSCOPE results
-  neuroscope_res <- read.csv(neuroscope_csv)
-  neuro_ligs <- toupper(neuroscope_res$Ligand)
-
-  # Find which NicheNet top ligands match NEUROSCOPE
-  top_n   <- min(20, nrow(ligand_activities))
-  top_nn  <- toupper(ligand_activities$test_ligand[1:top_n])
-
-  neuro_only <- setdiff(neuro_ligs, top_nn)
-  nn_only    <- setdiff(top_nn, neuro_ligs)
-  both       <- intersect(neuro_ligs, top_nn)
-
-  cat(sprintf("\n  NicheNet top %d ligands vs NEUROSCOPE:\n", top_n))
-  cat(sprintf("    Both:           %d\n", length(both)))
-  cat(sprintf("    NEUROSCOPE-only:%d\n", length(neuro_only)))
-  cat(sprintf("    NicheNet-only:  %d\n", length(nn_only)))
-
-  # Build comparison table
-  comp <- data.frame(
-    Ligand          = neuroscope_res$Ligand,
-    Receptor        = if("Receptor" %in% colnames(neuroscope_res)) neuroscope_res$Receptor else NA,
-    NEUROSCOPE_Cap  = if("CondCapacity" %in% colnames(neuroscope_res)) neuroscope_res$CondCapacity else NA,
-    NEUROSCOPE_FDR  = if("FDRCapacity" %in% colnames(neuroscope_res)) neuroscope_res$FDRCapacity else NA,
-    In_NicheNet_Top20 = toupper(neuroscope_res$Ligand) %in% top_nn,
-    NicheNet_AUPR   = ligand_activities$aupr_corrected[
-      match(toupper(neuroscope_res$Ligand), toupper(ligand_activities$test_ligand))],
-    NicheNet_Rank   = ligand_activities$rank_nichenet[
-      match(toupper(neuroscope_res$Ligand), toupper(ligand_activities$test_ligand))]
-  )
-
-  return(list(
-    ligand_activities = ligand_activities,
-    comparison        = comp,
-    n_both            = length(both),
-    n_neuro_only      = length(neuro_only),
-    n_nn_only         = length(nn_only)
-  ))
+  readRDS(path)
 }
 
-# ── Kang 2018 ─────────────────────────────────────────────────────────────────
-cat("\nRunning NicheNet on Kang 2018...\n")
+base <- "https://zenodo.org/record/7074291/files"
+cat("Loading NicheNet prior networks (Zenodo 7074291)...\n")
+ligand_target_matrix <- cache_rds(
+  file.path(nn_dir, "ligand_target_matrix.rds"),
+  paste0(base, "/ligand_target_matrix_nsga2r_final.rds"))
+lr_network <- cache_rds(
+  file.path(nn_dir, "lr_network.rds"),
+  paste0(base, "/lr_network_human_21122021.rds"))
+cat("  Ligand-target matrix:", nrow(ligand_target_matrix), "x", ncol(ligand_target_matrix), "\n")
+cat("  LR network:", nrow(lr_network), "interactions\n\n")
 
-# Need expression as genes x cells CSV — generate from the NEUROSCOPE channel_rankings
-# as a proxy (NicheNet needs raw expression; we use the channel_rankings for ligand list)
-kang_out <- tryCatch({
-  run_nichenet(
-    expr_csv        = "converted/kang2018/kang_expression_dense.csv",  # if available
-    meta_csv        = "converted/kang2018/kang_cell_metadata.csv",
-    neuroscope_csv  = "results/kang2018/channel_rankings.csv",
-    dataset_name    = "Kang 2018 IFN-beta PBMC",
-    sender_celltypes = c("CD14+ Monocyte", "DC", "CD4 T"),
-    receiver_celltype = c("CD4 T", "CD8 T", "NK")
+# ── Dataset definitions ───────────────────────────────────────────────────────
+DATASETS <- list(
+  list(name="Kang2018",   neuro="results/kang2018/channel_rankings.csv",   gene="converted/kang2018/kang_gene_names.csv",     out="results/kang2018"),
+  list(name="COVIDAtlas", neuro="results/covid_atlas/channel_rankings.csv", gene="converted/covid_atlas/covid_gene_names.csv", out="results/covid_atlas"),
+  list(name="Lupus",      neuro="results/lupus/channel_rankings.csv",       gene="converted/lupus/lupus_gene_names.csv",       out="results/lupus"),
+  list(name="SmillieIBD", neuro="results/smillie2019/channel_rankings.csv", gene="converted/smillie2019/smillie_gene_names.csv", out="results/smillie2019")
+)
+
+summary_rows <- list()
+
+for (ds in DATASETS) {
+  name <- ds$name
+  cat("=====", name, "=====\n")
+
+  if (!file.exists(ds$neuro) || !file.exists(ds$gene)) {
+    cat("  Missing files — skipping\n\n"); next
+  }
+
+  neuro <- read.csv(ds$neuro, stringsAsFactors=FALSE)
+  genes <- read.csv(ds$gene,  stringsAsFactors=FALSE)
+  all_genes <- toupper(genes$gene_name)
+
+  fdr_col <- if ("FDRCapacity" %in% names(neuro)) "FDRCapacity" else "FDR"
+  neuro_sig <- neuro[as.numeric(neuro[[fdr_col]]) < 0.05, ]
+  cat("  NEUROSCOPE FDR-sig:", nrow(neuro_sig), "\n")
+
+  # Comparison 1: LR network membership
+  # Does NicheNet's prior LR network contain each NEUROSCOPE-sig pair?
+  nn_ligs  <- toupper(unique(lr_network$from))
+  nn_recs  <- toupper(unique(lr_network$to))
+  nn_pairs <- paste0(toupper(lr_network$from), "_", toupper(lr_network$to))
+
+  neuro_pairs <- paste0(toupper(neuro_sig$Ligand), "_", toupper(neuro_sig$Receptor))
+  neuro_ligs  <- toupper(neuro_sig$Ligand)
+
+  in_lr_net     <- neuro_pairs[neuro_pairs %in% nn_pairs]
+  not_lr_net    <- neuro_pairs[!neuro_pairs %in% nn_pairs]
+  lig_in_nn     <- neuro_ligs[neuro_ligs %in% nn_ligs]
+  lig_not_nn    <- neuro_ligs[!neuro_ligs %in% nn_ligs]
+
+  pct_pair_not <- round(100 * length(not_lr_net) / max(1, length(neuro_pairs)))
+  pct_lig_not  <- round(100 * length(lig_not_nn) / max(1, length(neuro_ligs)))
+
+  cat(sprintf("  LR pair in NicheNet LR network: %d / %d  (%d%% NEUROSCOPE-only)\n",
+              length(in_lr_net), length(neuro_pairs), pct_pair_not))
+  cat(sprintf("  Ligand in NicheNet network:     %d / %d unique ligands\n",
+              length(lig_in_nn), length(unique(neuro_ligs))))
+
+  # Comparison 2: For ligands present in NicheNet, are the NEUROSCOPE-sig
+  # receptors among their known target genes in the prior network?
+  # (ligand_target_matrix[ligand, gene] > threshold)
+  target_threshold <- 0.001  # NicheNet standard
+  receptors_in_target <- c()
+  for (lig in unique(neuro_ligs)) {
+    if (lig %in% rownames(ligand_target_matrix)) {
+      targets <- names(which(ligand_target_matrix[lig,] > target_threshold))
+      recs_for_lig <- toupper(neuro_sig$Receptor[toupper(neuro_sig$Ligand) == lig])
+      recs_in_targets <- recs_for_lig[recs_for_lig %in% toupper(targets)]
+      receptors_in_target <- c(receptors_in_target, recs_in_targets)
+    }
+  }
+  n_rec_in_target <- length(unique(receptors_in_target))
+  cat(sprintf("  Receptor genes in NicheNet ligand targets: %d / %d\n",
+              n_rec_in_target, length(unique(toupper(neuro_sig$Receptor)))))
+
+  # Per-pair table
+  res <- data.frame(
+    Ligand                  = neuro_sig$Ligand,
+    Receptor                = neuro_sig$Receptor,
+    NEUROSCOPE_Cap          = as.numeric(neuro_sig$CondCapacity),
+    NEUROSCOPE_FDR          = as.numeric(neuro_sig[[fdr_col]]),
+    Pair_in_NicheNet_LR     = neuro_pairs %in% nn_pairs,
+    Ligand_in_NicheNet      = toupper(neuro_sig$Ligand) %in% nn_ligs,
+    Receptor_in_NicheNet    = toupper(neuro_sig$Receptor) %in% nn_recs,
+    stringsAsFactors        = FALSE
   )
-}, error = function(e) {
-  cat(sprintf("  Kang 2018 NicheNet error: %s\n", e$message))
-  NULL
-})
+  out_path <- file.path(ds$out, "comparison_nichenet_vs_neuroscope.csv")
+  write.csv(res, out_path, row.names=FALSE)
+  cat("  Saved:", out_path, "\n")
 
-if (!is.null(kang_out)) {
-  write.csv(kang_out$comparison,
-            "results/kang2018/comparison_nichenet_vs_neuroscope.csv",
-            row.names = FALSE)
-  cat(sprintf("  Saved: results/kang2018/comparison_nichenet_vs_neuroscope.csv\n"))
+  summary_rows[[length(summary_rows)+1]] <- list(
+    Dataset=name, FDR_sig=nrow(neuro_sig),
+    Pairs_in_NicheNet_LR=length(in_lr_net),
+    Pairs_NOT_in_NicheNet=length(not_lr_net),
+    Pct_not_in_NicheNet=paste0(pct_pair_not,"%"),
+    Ligs_in_NicheNet=length(lig_in_nn),
+    Ligs_NOT_in_NicheNet=paste0(length(lig_not_nn)," (",pct_lig_not,"%)")
+  )
+  cat("\n")
 }
 
-# ── COVID Atlas ───────────────────────────────────────────────────────────────
-cat("\nRunning NicheNet on COVID Atlas...\n")
-
-covid_out <- tryCatch({
-  run_nichenet(
-    expr_csv        = "converted/covid_atlas/covid_expression_dense.csv",
-    meta_csv        = "converted/covid_atlas/covid_cell_metadata.csv",
-    neuroscope_csv  = "results/covid_atlas/channel_rankings.csv",
-    dataset_name    = "COVID Atlas (Stephenson 2021)",
-    sender_celltypes = c("CD14+ Monocyte", "CD16+ Monocyte", "DC"),
-    receiver_celltype = c("CD4 T", "NK", "B")
-  )
-}, error = function(e) {
-  cat(sprintf("  COVID Atlas NicheNet error: %s\n", e$message))
-  NULL
-})
-
-if (!is.null(covid_out)) {
-  write.csv(covid_out$comparison,
-            "results/covid_atlas/comparison_nichenet_vs_neuroscope.csv",
-            row.names = FALSE)
-  cat(sprintf("  Saved: results/covid_atlas/comparison_nichenet_vs_neuroscope.csv\n"))
+cat("=== CROSS-DATASET NICHENET SUMMARY ===\n")
+if (length(summary_rows) > 0) {
+  sum_df <- do.call(rbind, lapply(summary_rows, as.data.frame, stringsAsFactors=FALSE))
+  print(sum_df)
+  write.csv(sum_df, "results/nichenet_comparison_summary.csv", row.names=FALSE)
+  cat("\nSaved: results/nichenet_comparison_summary.csv\n")
 }
 
-# ── Summary ───────────────────────────────────────────────────────────────────
-cat("\n=== NicheNet comparison summary ===\n")
-cat("NicheNet uses prior-knowledge networks to rank ligands by downstream\n")
-cat("gene-set enrichment in receiver cells — orthogonal to KSG MI.\n\n")
-cat("Key distinction:\n")
-cat("  NicheNet: ligand -> TF -> target gene enrichment (knowledge-driven)\n")
-cat("  CellChat: geometric mean co-expression (data-driven, zero-floor)\n")
-cat("  NEUROSCOPE: KSG mutual information channel capacity (data-driven, no zero-floor)\n\n")
-cat("Overlap with NEUROSCOPE is expected to be partial:\n")
-cat("  - Pairs found by both: high-confidence (two independent methods agree)\n")
-cat("  - NEUROSCOPE-only: information-theoretically active, not in prior networks\n")
-cat("  - NicheNet-only: prior-knowledge supported, but may lack statistical power\n")
-cat("    in sparse single-cell data\n")
+cat("\nKey interpretation:\n")
+cat("  NicheNet: prior-network ligand activity (AUPR on TF-target enrichment)\n")
+cat("  NEUROSCOPE: KSG MI channel capacity (statistical dependence, no prior)\n")
+cat("  Both agree = high-confidence; NEUROSCOPE-only = novel/statistically active\n")
+cat("  NicheNet-only = prior-supported but low statistical power at n donors\n")

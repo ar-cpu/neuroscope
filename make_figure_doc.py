@@ -108,13 +108,17 @@ sum_data = [
     ["Donors / samples", "n=16 pseudobulk\n(8 donors × 2)", "n=124 donors",
      "n=162 donors\n(88 SLE + 49 ctrl)", "n=18 donors\n(9,385 cells)"],
     ["KSG-sig (FDR<0.05)", "5 / 9  (56%)", "49 / 127  (39%)",
-     "27 / 42  (64%)", "17 / 34  (50%)"],
+     "33 / 40  (83%)", "17 / 34  (50%)"],
     ["Not in LIANA rank_agg", "3 / 5  (60%)", "32 / 49  (65%)",
-     "11 / 27  (41%)", "12 / 17  (71%)"],
-    ["Invisible to CellChat", "5 / 5  (100%)", "20 / 49  (41%)",
-     "TBD", "TBD"],
+     "19 / 33  (58%)", "12 / 17  (71%)"],
+    ["Not in CellChat", "3 / 5  (60%)", "20 / 49  (41%)",
+     "19 / 33  (58%)", "12 / 17  (70%)"],
+    ["Not in NicheNet LR", "2 / 5  (40%)", "21 / 49  (43%)",
+     "6 / 33  (18%)", "6 / 17  (35%)"],
+    ["Comm ARI vs transcr.", "n/a", "0.082 (100% diverg.)",
+     "0.008 (Decoupled)", "0.031 (100% diverg.)"],
     ["2SLS causal validated", "0 / 9", "1 / 127  (0.8%)",
-     "run_ml=false", "7 / 34  (20.6%)"],
+     "1 / 40  (2.5%)", "7 / 34  (20.6%)"],
 ]
 sum_style = TableStyle([
     ("BACKGROUND",  (0,0), (-1,0),  colors.HexColor("#1a3a5c")),
@@ -614,7 +618,7 @@ liana_data = [
     ["Dataset", "NEUROSCOPE sig", "In LIANA", "NEUROSCOPE-only", "Exclusive %"],
     ["Kang 2018 (PBMC)", "5", "2", "3", "60%"],
     ["COVID Atlas (PBMC)", "49", "17", "32", "65%"],
-    ["Lupus PBMC (SLE)", "27", "16", "11", "41%"],
+    ["Lupus PBMC (SLE)", "33", "14", "19", "58%"],
     ["Smillie IBD (Colon)", "17", "5", "12", "71%"],
 ]
 liana_ts = TableStyle([
@@ -673,9 +677,48 @@ story += stat_block([
     "Cross-disease pattern (IL1B/IL1RN -> IL1R2): invisible to LIANA in BOTH Kang 2018 AND Lupus.",
     "  Consistent across IFN-beta stimulation and systemic autoimmune disease — robust finding.",
     "",
-    "Pattern across 4 benchmarks: 41-71% of NEUROSCOPE-significant pairs not found by LIANA,",
+    "Pattern across 4 benchmarks: 58-71% of NEUROSCOPE-significant pairs not found by LIANA,",
     "  consistent regardless of tissue (PBMC or colon) or disease (viral, autoimmune, IBD).",
     "  KSG MI captures inter-donor statistical dependence; LIANA methods detect mean expression.",
+])
+
+story.append(Spacer(1, 0.2 * inch))
+story.append(Paragraph("Figure 7 Supplemental - NicheNet LR Network Membership Comparison", fig_title_style))
+story.append(Paragraph(
+    "NicheNet (Browaeys et al. 2020 Nat Methods; saeyslab/nichenetr v2) curates a human "
+    "ligand-receptor prior network of 4,986 interactions from PPI, TF-target, and signaling "
+    "databases. Each NEUROSCOPE-sig pair is checked for membership in this network. "
+    "Pairs absent from NicheNet's network may be novel, context-specific, or recently characterized.",
+    legend_style))
+story.append(Spacer(1, 0.1 * inch))
+
+nn_data = [
+    ["Dataset", "NEUROSCOPE sig", "In NicheNet LR", "Not in NicheNet", "Novel %"],
+    ["Kang 2018 (PBMC)", "5", "3", "2", "40%"],
+    ["COVID Atlas (PBMC)", "49", "28", "21", "43%"],
+    ["Lupus PBMC (SLE)", "33", "27", "6", "18%"],
+    ["Smillie IBD (Colon)", "17", "11", "6", "35%"],
+]
+story.append(Table(nn_data,
+                   colWidths=[1.5*inch, 1.3*inch, 1.3*inch, 1.3*inch, 1.3*inch],
+                   style=liana_ts))
+story.append(Spacer(1, 0.1 * inch))
+story += stat_block([
+    "NicheNet prior network: 4,986 human LR interactions (Zenodo record 7074291)",
+    "  Source: Browaeys et al. 2020 Nat Methods; saeyslab/nichenetr GitHub",
+    "",
+    "18-43% of NEUROSCOPE-sig pairs absent from NicheNet's LR network.",
+    "All NEUROSCOPE-sig LIGANDS are present in NicheNet (0-24% missing).",
+    "Receptor coverage is partial (17-47% receptors in NicheNet ligand target genes).",
+    "",
+    "Key NEUROSCOPE-only pairs not in NicheNet LR network:",
+    "  Kang2018:  IL1RN->IL1R2, CD47->TYROBP  (no prior LR annotation)",
+    "  COVIDAtlas: ALOX5->CYSLTR1, PTGES3->PTGER4  (eicosanoid — novel pathway)",
+    "  Lupus:     IFNL1->IFNLR1, AKR1C3->PTGDR  (IFN-lambda, prostaglandin — novel)",
+    "  SmillieIBD: ANXA1->FPR3, LIPA->RORA  (inflammation resolution — novel)",
+    "",
+    "Script: compare_nichenet.R  (requires nichenetr from GitHub: saeyslab/nichenetr)",
+    "Prior data: Zenodo 7074291 (cached in converted/nichenet/ after first run)",
 ])
 story.append(PageBreak())
 

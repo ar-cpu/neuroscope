@@ -1,0 +1,5 @@
+"Dataset","FDR_sig","Pairs_in_NicheNet_LR","Pairs_NOT_in_NicheNet","Pct_not_in_NicheNet","Ligs_in_NicheNet","Ligs_NOT_in_NicheNet"
+"Kang2018",5,3,2,"40%",5,"0 (0%)"
+"COVIDAtlas",49,28,21,"43%",38,"11 (22%)"
+"Lupus",33,27,6,"18%",29,"4 (12%)"
+"SmillieIBD",17,11,6,"35%",13,"4 (24%)"
