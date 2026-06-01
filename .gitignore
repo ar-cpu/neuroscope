@@ -3,9 +3,16 @@ raw_data/
 converted/*.mat
 converted/*.npz
 converted/*.h5ad
+# Per-dataset converted matrices/metadata (regenerable via scripts/prep_*.py)
+converted/**/*.mat
+converted/**/*.npz
 converted/kang2018/
 converted/covid_atlas/
 converted/stephenson2021/
+converted/lupus/
+converted/smillie2019/
+# NicheNet prior networks (downloaded from Zenodo 7074291 by scripts/compare_nichenet.R)
+converted/nichenet/
 converted/aging_pbmc.h5ad
 converted/allen_mge_interneuron_expression_sparse.*
 converted/allen_mge_interneuron_cell_metadata.csv
@@ -28,9 +35,14 @@ results/**/*.fig
 
 # Run logs (large, not informative for users)
 results/**/*_log.txt
+results/**/*.log
+results/*.log
 results/power_analysis/power_analysis_run.log
 results/power_analysis_log.txt
 results/power_analysis_log_v2.txt
+
+# Raw LIANA per-cluster-pair dumps (summarized in comparison_*_vs_neuroscope.csv)
+results/**/liana_all_methods_*.csv
 
 # Per-run generated directories
 results/**/ml_models/
