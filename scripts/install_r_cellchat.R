@@ -1,4 +1,4 @@
-# install_r_cellchat.R — Install all R dependencies for CellChat comparison
+# install_r_cellchat.R -- Install all R dependencies for CellChat comparison
 #
 # Run this once:
 #   "C:/Program Files/R/R-4.5.3/bin/Rscript.exe" install_r_cellchat.R

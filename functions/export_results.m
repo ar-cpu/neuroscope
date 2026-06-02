@@ -356,7 +356,7 @@ fprintf('\nPhase 8: Exporting analysis metadata...\n');
 
 metadata = struct();
 metadata.analysis_date = datestr(now);
-metadata.pipeline_version = 'NEUROSCOPE v5.2';
+metadata.pipeline_version = 'NEUROSCOPE';
 metadata.datasets = struct('condition', dataset_name, 'reference', 'Reference dataset');
 metadata.methods = struct(...
     'clustering', 'Louvain/Leiden with SNN graph', ...
@@ -369,7 +369,7 @@ metadata.results = summary_stats;
 fid = fopen('results/analysis_metadata.json', 'w');
 fprintf(fid, '{\n');
 fprintf(fid, '  "analysis_date": "%s",\n', metadata.analysis_date);
-fprintf(fid, '  "pipeline_version": "NEUROSCOPE v5.2",\n');
+fprintf(fid, '  "pipeline_version": "NEUROSCOPE",\n');
 fprintf(fid, '  "network_interactions": %d,\n', summary_stats.network.total_interactions);
 fprintf(fid, '  "tumor_specific_interactions": %d,\n', summary_stats.tumor_specific.total);
 fprintf(fid, '  "significant_interactions_fdr_0.05": %d,\n', summary_stats.tumor_specific.significant_fdr_0_05);

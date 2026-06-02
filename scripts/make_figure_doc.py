@@ -1,7 +1,7 @@
 """
 make_figure_doc.py  —  Generate NEUROSCOPE figure document (PDF)
 Run: python make_figure_doc.py
-Output: results/NEUROSCOPE_v52_figures.pdf
+Output: results/NEUROSCOPE_figures.pdf
 """
 
 import os
@@ -15,7 +15,7 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 
-OUT_PATH    = r"results\NEUROSCOPE_v52_figures.pdf"
+OUT_PATH    = r"results\NEUROSCOPE_figures.pdf"
 KANG_DIR    = r"results\kang2018\paper_figures"
 COVID_DIR   = r"results\covid_atlas\paper_figures"
 LUPUS_DIR   = r"results\lupus\paper_figures"
@@ -84,7 +84,7 @@ story = []
 
 # ── Title page ────────────────────────────────────────────────────────────────
 story.append(Spacer(1, 1.2 * inch))
-story.append(Paragraph("NEUROSCOPE v5.2", title_style))
+story.append(Paragraph("NEUROSCOPE", title_style))
 story.append(Paragraph("Figure Document — Publication Draft", subtitle_style))
 story.append(Spacer(1, 0.15 * inch))
 story.append(hr())
@@ -785,7 +785,7 @@ story.append(Spacer(1, 0.18 * inch))
 # ── R2: Master cross-dataset table ────────────────────────────────────────────
 story.append(Paragraph("R2 — Cross-Dataset Comparison (Master Table)", fig_title_style))
 story.append(Paragraph(
-    "All four benchmarks run with identical NEUROSCOPE v5.2 configuration "
+    "All four benchmarks run with identical NEUROSCOPE configuration "
     "(n_permutations=200, FDR threshold=0.05, seed=42, 500 bootstrap resamples). "
     "LIANA = rank_aggregate consensus. CellChat = trimean (scaled_weight from LIANA output). "
     "NicheNet = LR pair membership in Zenodo 7074291 prior network (4,986 interactions).",
@@ -1165,7 +1165,7 @@ story.append(Paragraph(
 story.append(PageBreak())
 
 # ── Methods summary ───────────────────────────────────────────────────────────
-story.append(Paragraph("Methods Summary", section_style))
+story.append(Paragraph("Methods", section_style))
 story.append(hr())
 
 methods = [
@@ -1240,7 +1240,7 @@ for title, body in methods:
 story.append(Spacer(1, 0.2 * inch))
 story.append(hr())
 story.append(Paragraph(
-    "NEUROSCOPE v5.2  ·  Generated 2026-05-30  ·  "
+    "NEUROSCOPE  ·  Generated 2026-05-30  ·  "
     "All 4 benchmarks complete. AUROC 1.000 vs 0.506 replicated across all datasets. "
     "41-71% NEUROSCOPE-exclusive pairs across PBMC and colon tissue. NicheNet comparison pending.",
     caption_style))

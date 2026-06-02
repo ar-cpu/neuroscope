@@ -1,5 +1,5 @@
 """
-compare_liana.py  —  LIANA multi-method comparison vs NEUROSCOPE
+compare_liana.py  --  LIANA multi-method comparison vs NEUROSCOPE
   Runs CellChat, CellPhoneDB, NicheNet, NATMI, and Connectome via the
   liana-py framework on the same datasets and compares to NEUROSCOPE.
 
@@ -61,7 +61,7 @@ def load_dataset(mat_path, meta_path, gene_path):
                        var=pd.DataFrame(index=genes))
     adata.var_names_make_unique()
 
-    # Resolve cell type column — prefer string names over integer cluster IDs
+    # Resolve cell type column -- prefer string names over integer cluster IDs
     for col in ("CellTypeName", "cell_type", "cell_type_label", "Cluster"):
         if col in adata.obs.columns:
             adata.obs["cell_type"] = adata.obs[col].astype(str)
@@ -86,7 +86,7 @@ def run_liana_methods(adata, dataset_name, neuroscope_csv, out_dir):
 
     print(f"\nRunning LIANA on {dataset_name}...")
 
-    # Run all available methods — try rank_aggregate first, fall back to cellphonedb
+    # Run all available methods -- try rank_aggregate first, fall back to cellphonedb
     results_df = None
     try:
         # liana >= 1.0 by_sample requires sample_key; try with donor_id
@@ -139,7 +139,7 @@ def run_liana_methods(adata, dataset_name, neuroscope_csv, out_dir):
         cap = row.get("CondCapacity", np.nan)
         fdr = row.get("FDRCapacity",  np.nan)
 
-        # Match in LIANA results — check ligand_complex and receptor_complex
+        # Match in LIANA results -- check ligand_complex and receptor_complex
         match = results_df[
             (results_df.get("ligand_complex",  pd.Series(dtype=str)).str.upper() == lig) &
             (results_df.get("receptor_complex",pd.Series(dtype=str)).str.upper() == rec)
@@ -243,7 +243,7 @@ for ds in DATASETS:
         continue
 
     if not LIANA_OK:
-        print(f"\n{ds['name']}: liana-py not installed — creating placeholder")
+        print(f"\n{ds['name']}: liana-py not installed -- creating placeholder")
         mock_liana_comparison(ds["neuroscope_csv"], ds["name"], ds["out_dir"])
         continue
 
@@ -256,8 +256,8 @@ for ds in DATASETS:
 
 print("\n=== LIANA comparison complete ===")
 print("\nMethod interpretation guide:")
-print("  CellPhoneDB:   mean(L) * mean(R), permutation test — no trimean zero-floor")
-print("  CellChat:      trimean — zero-floor at >50% sparsity")
+print("  CellPhoneDB:   mean(L) * mean(R), permutation test -- no trimean zero-floor")
+print("  CellChat:      trimean -- zero-floor at >50% sparsity")
 print("  NicheNet:      prior-knowledge ligand activity scoring")
 print("  NATMI:         specificity-weighted product of mean expression")
 print("  Connectome:    expression-weight edge scoring")

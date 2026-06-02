@@ -22,7 +22,7 @@
 addpath(genpath('functions'));
 rng(42);
 
-fprintf('=== KSG MI Power Analysis — Reliability at Small n ===\n\n');
+fprintf('=== KSG MI Power Analysis -- Reliability at Small n ===\n\n');
 fprintf('Motivation: Kang 2018 uses n=16 pseudobulk samples.\n');
 fprintf('This simulation asks: is the KSG MI estimator valid at n=16?\n\n');
 
@@ -95,11 +95,11 @@ for ni = 1:length(N_VALS)
             X    = data(:, 1);
             Y    = data(:, 2);
 
-            % PSEUDOBULK DATA MODEL — no zero-inflation here.
+            % PSEUDOBULK DATA MODEL -- no zero-inflation here.
             % X(i) = per-cluster mean ligand expression for donor i.
             % Pseudobulk means are computed over many cells (typically
             % 100-500 per donor-cluster), so even at 85% per-cell sparsity
-            % the mean is ~0.15 × (mean non-zero level) — a strictly positive
+            % the mean is ~0.15 × (mean non-zero level) -- a strictly positive
             % continuous value. True zero-inflation only exists at the
             % single-cell level, which is absorbed by aggregation.
             % Simulating as bivariate Gaussian matches the CLT approximation
@@ -188,7 +188,7 @@ for ni=1:length(N_VALS)
     fprintf('\n');
 end
 
-fprintf('\nRANKING RELIABILITY — median Spearman rho(estimated, true)\n');
+fprintf('\nRANKING RELIABILITY -- median Spearman rho(estimated, true)\n');
 fprintf('(Key claim: relative ordering is valid even at small n)\n');
 fprintf('%-6s  %s\n', 'n', 'median_rho  [5th pct, 95th pct]');
 for ni=1:length(N_VALS)
@@ -232,7 +232,7 @@ save(fullfile(outdir, 'power_analysis_results.mat'), '-struct', 'os');
 
 % Write plain text summary
 fid = fopen(fullfile(outdir, 'power_analysis_summary.txt'), 'w');
-fprintf(fid, 'KSG MI Power Analysis — NEUROSCOPE v5.2\n');
+fprintf(fid, 'KSG MI Power Analysis -- NEUROSCOPE\n');
 fprintf(fid, 'N_TRIALS=%d, N_BOOT=%d, model=bivariate_Gaussian_copula\n\n', N_TRIALS, N_BOOT);
 fprintf(fid, 'n values tested: %s\n', mat2str(N_VALS));
 fprintf(fid, 'rho values: %s\n', mat2str(RHO_VALS));

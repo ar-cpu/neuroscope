@@ -35,7 +35,7 @@ function NEUROSCOPE(config)
 
 t_pipeline = tic;
 
-fprintf('NEUROSCOPE v5.2\n');
+fprintf('NEUROSCOPE\n');
 fprintf('Information-Theoretic Cell-Cell Communication Analysis\n');
 fprintf('Start: %s\n\n', datestr(now));
 

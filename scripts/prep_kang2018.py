@@ -1,5 +1,5 @@
 """
-prep_kang2018.py  —  Convert Kang et al. 2018 (GSE96583) PBMC data
+prep_kang2018.py  --  Convert Kang et al. 2018 (GSE96583) PBMC data
 to NEUROSCOPE format.
 
 Dataset: Kang et al. 2018 Nature Biotechnology, 8 donors × 2 conditions (ctrl + IFN-beta stim),

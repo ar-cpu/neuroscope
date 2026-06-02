@@ -37,7 +37,7 @@ hdr   = @(s) fprintf(fid, '\n%s\n%s\n', s, repmat('=', 1, length(s)));
 sub   = @(s) fprintf(fid, '\n%s\n%s\n', s, repmat('-', 1, length(s)));
 
 %% Header
-fprintf(fid, 'NEUROSCOPE v5.2 — Scientific Discovery Report\n');
+fprintf(fid, 'NEUROSCOPE -- Scientific Discovery Report\n');
 fprintf(fid, 'Generated: %s\n', datestr(now));
 fprintf(fid, 'Dataset:   %s\n', config.dataset_name);
 fprintf(fid, 'Condition: %s\n', config.condition_name);
@@ -70,7 +70,7 @@ if using_spearman
     fprintf(fid, '  2. The headline claim that "X%% of co-expressed pairs\n');
     fprintf(fid, '     transmit I~=0" CANNOT be made from this run.\n');
     fprintf(fid, '     With Spearman fallback, capacity tracks expression\n');
-    fprintf(fid, '     strength almost perfectly — capacity-only enriched\n');
+    fprintf(fid, '     strength almost perfectly -- capacity-only enriched\n');
     fprintf(fid, '     channels will always be near zero as a result.\n');
     fprintf(fid, '\n');
     fprintf(fid, '  3. FDRCapacity and FDR tests are not independent here.\n');
@@ -92,7 +92,7 @@ if using_spearman
 end
 
 
-%% Section 1 — Network overview
+%% Section 1 -- Network overview
 hdr('1. COMMUNICATION NETWORK OVERVIEW');
 if ~isempty(net) && isfield(net, 'weights')
     fprintf(fid, 'Total L-R interactions (channel capacity > 0):  %d\n', length(net.weights));
@@ -111,7 +111,7 @@ else
     line('Network data unavailable.');
 end
 
-%% Section 2 — Differential channels
+%% Section 2 -- Differential channels
 hdr('2. DIFFERENTIAL CHANNEL ANALYSIS');
 if ~isempty(cs) && height(cs) > 0
     n_sig_str = sum(cs.FDR < fdr);
@@ -128,12 +128,12 @@ if ~isempty(cs) && height(cs) > 0
         fprintf(fid, 'for genuine KSG-based results.\n');
     else
         fprintf(fid, 'Interpretation: Capacity-exclusive channels transmit information\n');
-        fprintf(fid, 'without elevated co-expression — invisible to geometric mean scoring.\n');
+        fprintf(fid, 'without elevated co-expression -- invisible to geometric mean scoring.\n');
         fprintf(fid, 'Note: All KSG-significant pairs may still be invisible to CellChat\n');
         fprintf(fid, 'via the trimean zero-floor; see CellChat comparison section below.\n');
     end
 
-    % CellChat comparison — read from CSV if it exists
+    % CellChat comparison -- read from CSV if it exists
     comp_csv = fullfile(out_dir, 'comparison_cellchat_vs_neuroscope.csv');
     if exist(comp_csv, 'file')
         try
@@ -161,7 +161,7 @@ if ~isempty(cs) && height(cs) > 0
             blank();
             fprintf(fid, 'Zero-floor mechanism: CellChat trimean=0 whenever >50%% of cells\n');
             fprintf(fid, 'do not express the gene (Q1=Q2=0). NEUROSCOPE uses per-donor\n');
-            fprintf(fid, 'cluster means — inter-donor variation is retained even at 15%%\n');
+            fprintf(fid, 'cluster means -- inter-donor variation is retained even at 15%%\n');
             fprintf(fid, 'per-cell sparsity.\n');
         catch ME
             fprintf(fid, '(CellChat comparison data could not be read: %s)\n', ME.message);
@@ -198,7 +198,7 @@ if ~isempty(cs) && height(cs) > 0
     if has_ci
         n_wide = sum(cr.BootCI_hi(1:n_print) - cr.BootCI_lo(1:n_print) > 0.15, 'omitnan');
         if n_wide > 0
-            fprintf(fid, 'NOTE: %d/%d top channels have 95%% CI width >0.15 bits — expected at n=%d\n', ...
+            fprintf(fid, 'NOTE: %d/%d top channels have 95%% CI width >0.15 bits -- expected at n=%d\n', ...
                 n_wide, n_print, net.n_samples_used);
         end
     end
@@ -224,7 +224,7 @@ else
     line('No differential channel data available.');
 end
 
-%% Section 3 — Causal validation
+%% Section 3 -- Causal validation
 hdr('3. CAUSAL INTERACTION VALIDATION (IV/2SLS)');
 causal = results.causal_results;
 if isfield(causal,'n_causal') && isfield(causal,'n_tested') && causal.n_tested > 0
@@ -242,7 +242,7 @@ else
     line('Causal validation data unavailable or not run.');
 end
 
-%% Section 4 — NMF programs
+%% Section 4 -- NMF programs
 hdr('4. LATENT COMMUNICATION PROGRAMS (NMF)');
 progs = results.comm_programs;
 if isfield(progs,'rank') && progs.rank > 0
@@ -271,7 +271,7 @@ else
     line('Communication program data unavailable or not run.');
 end
 
-%% Section 5 — Spectral communities
+%% Section 5 -- Spectral communities
 hdr('5. SPECTRAL COMMUNICATION COMMUNITIES');
 entropy = results.entropy_results;
 if isfield(entropy,'n_communities') && entropy.n_communities > 0
@@ -291,13 +291,13 @@ if isfield(entropy,'n_communities') && entropy.n_communities > 0
     end
     blank();
     fprintf(fid, 'Interpretation: Spectral decomposition of the communication Laplacian\n');
-    fprintf(fid, 'reveals functional modules — groups of cell types that communicate\n');
+    fprintf(fid, 'reveals functional modules -- groups of cell types that communicate\n');
     fprintf(fid, 'more within the group than across groups.\n');
 else
     line('Entropy/community data unavailable or not run.');
 end
 
-%% Section 6 — Communication identity
+%% Section 6 -- Communication identity
 hdr('6. COMMUNICATION IDENTITY vs. TRANSCRIPTOMIC IDENTITY');
 prof = results.cell_comm_profiles;
 id   = [];
@@ -357,7 +357,7 @@ else
     line('Communication identity analysis not available (requires cell_comm_profiles).');
 end
 
-%% Section 7 — Downstream response
+%% Section 7 -- Downstream response
 hdr('7. DOWNSTREAM TRANSCRIPTIONAL RESPONSE');
 dsr = results.downstream_response;
 if isstruct(dsr) && ~isempty(fieldnames(dsr))
@@ -376,7 +376,7 @@ else
     line('Downstream response data unavailable or not run.');
 end
 
-%% Section 8 — Methods note
+%% Section 8 -- Methods note
 hdr('8. METHODS NOTE (for paper writing)');
 if using_spearman
     fprintf(fid, 'Channel capacity: SPEARMAN COPULA FALLBACK (not KSG).\n');

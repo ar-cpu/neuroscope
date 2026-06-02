@@ -1,5 +1,5 @@
 """
-compare_cellchat.py  —  CellChat-equivalent scoring vs NEUROSCOPE channel capacity
+compare_cellchat.py  --  CellChat-equivalent scoring vs NEUROSCOPE channel capacity
                         on Kang et al. 2018 PBMC (GSE96583).
 CellChat scoring (Jin et al. 2021 Nat Commun eq. 1): trimean = 0.25*Q1 + 0.5*Q2 + 0.25*Q3
 Structural zero-floor: trimean = 0 whenever Q1 = Q2 = 0, i.e., >50% of cells are silent.
@@ -49,7 +49,7 @@ print(f"  Donors: {meta['donor_id'].nunique()}")
 print(f"  Clusters: {meta['Cluster'].nunique()}")
 
 if X.shape[0] != len(meta):
-    print(f"  WARNING: X has {X.shape[0]} rows but metadata has {len(meta)} rows — truncating X")
+    print(f"  WARNING: X has {X.shape[0]} rows but metadata has {len(meta)} rows -- truncating X")
     X = X[:len(meta), :]
     print(f"  Aligned X to {X.shape}")
 print()
@@ -361,7 +361,7 @@ contingency = np.array([[n_both, n_cap_only],
 odds_ratio, fisher_pval = stats.fisher_exact(contingency, alternative='two-sided')
 
 print(f"\n{'='*65}")
-print("COMPARISON RESULTS — 2x2 CONTINGENCY")
+print("COMPARISON RESULTS -- 2x2 CONTINGENCY")
 print(f"{'='*65}")
 print(f"                         CellChat sig   CellChat not sig")
 print(f"  NEUROSCOPE sig (cap):  {n_both:12d}   {n_cap_only:12d}")
@@ -370,14 +370,14 @@ print(f"{'='*65}")
 print(f"  Fisher exact test: OR = {odds_ratio:.3f},  p = {fisher_pval:.4f}")
 print()
 print(f"  Both methods:     {n_both:4d}  (validated by both)")
-print(f"  Capacity-only:    {n_cap_only:4d}  [NOVEL — missed by CellChat]")
+print(f"  Capacity-only:    {n_cap_only:4d}  [NOVEL -- missed by CellChat]")
 print(f"  Strength-only:    {n_str_only:4d}  (CellChat finds, NEUROSCOPE misses)")
 print(f"  Neither:          {n_neither:4d}")
 print()
 
 n_zero_floor = comp_df['CellChat_ZeroFloor'].sum()
 print(f"  CellChat zero-floor pairs: {n_zero_floor}/{n_cap_only} capacity-only pairs")
-print(f"  (trimean = 0 in all cluster combinations — structural, not threshold-dependent)")
+print(f"  (trimean = 0 in all cluster combinations -- structural, not threshold-dependent)")
 print(f"  Jin et al. 2021 eq. 1: trimean(x) = 0.25*Q1 + 0.5*Q2 + 0.25*Q3")
 print(f"  => trimean = 0 when Q1 = Q2 = 0, i.e., <50% of cells express the gene\n")
 
@@ -400,7 +400,7 @@ comp_df.to_csv(f"{OUT_DIR}/comparison_cellchat_vs_neuroscope.csv", index=False)
 cc_df.to_csv(f"{OUT_DIR}/cellchat_results_full.csv",               index=False)
 
 with open(f"{OUT_DIR}/comparison_summary.txt", 'w') as f:
-    f.write("CellChat vs NEUROSCOPE Comparison — Kang et al. 2018 PBMC (GSE96583)\n")
+    f.write("CellChat vs NEUROSCOPE Comparison -- Kang et al. 2018 PBMC (GSE96583)\n")
     f.write("=" * 70 + "\n\n")
     f.write(f"Dataset: {len(meta)} cells, {meta['donor_id'].nunique()} donors, "
             f"{meta['Cluster'].nunique()} cell types\n")
@@ -420,7 +420,7 @@ with open(f"{OUT_DIR}/comparison_summary.txt", 'w') as f:
     f.write(f"  Strength-only:         {n_str_only}\n")
     f.write(f"  Neither:               {n_neither}\n\n")
 
-    f.write("MECHANISTIC EXPLANATION — CellChat ZERO-FLOOR:\n")
+    f.write("MECHANISTIC EXPLANATION -- CellChat ZERO-FLOOR:\n")
     f.write(f"  {n_zero_floor}/{n_cap_only} capacity-only pairs have CellChat trimean = 0.0000\n")
     f.write("  for ALL cluster combinations tested.\n\n")
     f.write("  This is a STRUCTURAL property of the trimean formula:\n")
@@ -551,7 +551,7 @@ print(f"\n{'='*65}")
 print("CELLPHONEDB COMPARISON RESULTS")
 print(f"{'='*65}")
 print(f"  Both methods:     {n_both_cpd:4d}")
-print(f"  Capacity-only:    {n_cap_only_cpd:4d}  [NOVEL — missed by CellPhoneDB]")
+print(f"  Capacity-only:    {n_cap_only_cpd:4d}  [NOVEL -- missed by CellPhoneDB]")
 print(f"  Strength-only:    {n_str_only_cpd:4d}  (CellPhoneDB finds, NEUROSCOPE misses)")
 print()
 
@@ -563,7 +563,7 @@ if n_cap_only_cpd > 0:
     print("Capacity-only pairs vs CellPhoneDB:")
     for L, R in sorted(cpd_only_pairs):
         if L not in gene_to_idx or R not in gene_to_idx:
-            print(f"  {L:10s} -> {R:10s}  [not in expression matrix — skipping]")
+            print(f"  {L:10s} -> {R:10s}  [not in expression matrix -- skipping]")
             continue
         li, ri = gene_to_idx[L], gene_to_idx[R]
         max_mean_score = max(
@@ -580,7 +580,7 @@ if n_cap_only_cpd > 0:
     print(f"\n  CellPhoneDB zero-floor pairs: {cpd_zero_floor}/{n_cap_only_cpd}")
     print(f"  (mean=0 requires >99% sparsity, vs trimean=0 at >50% sparsity)")
     print(f"  CellPhoneDB misses {n_cap_only_cpd - cpd_zero_floor} capacity-only pairs")
-    print(f"  even though their mean expression > 0 — purely from the permutation test.")
+    print(f"  even though their mean expression > 0 -- purely from the permutation test.")
 
 cpd_df.to_csv(f"{OUT_DIR}/cellphonedb_results_full.csv", index=False)
 
@@ -594,7 +594,7 @@ with open(f"{OUT_DIR}/comparison_summary.txt", 'a') as f:
     f.write(f"  Capacity-only (NOVEL): {n_cap_only_cpd}  (missed by CellPhoneDB)\n")
     f.write(f"  Strength-only:         {n_str_only_cpd}\n\n")
     f.write("NOTE: CellPhoneDB uses mean (not trimean), so its zero-floor is at\n")
-    f.write("mean=0 (requires ALL cells to be silent — very rare). CellPhoneDB\n")
+    f.write("mean=0 (requires ALL cells to be silent -- very rare). CellPhoneDB\n")
     f.write("still misses some capacity-only pairs, but for different reasons:\n")
     f.write("the permutation test loses power when per-cell variance is high.\n")
     f.write(f"\nSaved: {OUT_DIR}/cellphonedb_results_full.csv\n")

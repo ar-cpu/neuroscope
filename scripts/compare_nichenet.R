@@ -1,4 +1,4 @@
-# compare_nichenet.R  —  NicheNet vs NEUROSCOPE comparison (all 4 benchmarks)
+# compare_nichenet.R  --  NicheNet vs NEUROSCOPE comparison (all 4 benchmarks)
 #
 # NicheNet uses prior-knowledge networks (TF-target, PPI, signaling) to score
 # ligand activity: AUPR of predicting receiver DE genes from ligand targets.
@@ -63,7 +63,7 @@ for (ds in DATASETS) {
   cat("=====", name, "=====\n")
 
   if (!file.exists(ds$neuro) || !file.exists(ds$gene)) {
-    cat("  Missing files — skipping\n\n"); next
+    cat("  Missing files -- skipping\n\n"); next
   }
 
   neuro <- read.csv(ds$neuro, stringsAsFactors=FALSE)
