@@ -1,4 +1,4 @@
-NEUROSCOPE v5.2 — Scientific Discovery Report
+NEUROSCOPE Scientific Discovery Report
 Generated: 30-May-2026 14:38:50
 Dataset:   Lupus
 Condition: SLE
