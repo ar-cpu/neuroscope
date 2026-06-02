@@ -1,330 +1,189 @@
 # NEUROSCOPE
 
-**An information-theoretic pipeline for measuring cell-cell communication from single-cell RNA-seq data.**
+**Information-theoretic cell-cell communication analysis for single-cell RNA-seq data.**
 
-NEUROSCOPE uses KSG mutual information channel capacity to detect which ligand-receptor pairs actually transmit information between cell populations — not merely which pairs are co-expressed. This collapses the majority of co-expressed pairs that carry no measurable signal, leaving only interactions with channel capacity > 0.
-
-> **Core claim:** Every existing tool (CellChat, NicheNet, CellPhoneDB) scores co-expression. NEUROSCOPE scores information transmission. These are not the same thing.
+NEUROSCOPE measures ligand-receptor communication using KSG mutual information channel capacity rather than co-expression scoring. The distinction matters: co-expression methods score whether a ligand and receptor are expressed in neighboring clusters; channel capacity scores whether ligand variation across donors actually predicts receptor variation — a much stricter test that filters out interactions with no measurable signal.
 
 ---
 
-## Table of Contents
+## Key Results
 
-- [Why NEUROSCOPE](#why-neuroscope)
-- [Key Algorithm](#key-algorithm)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Input Data Format](#input-data-format)
-- [Pipeline Modules](#pipeline-modules)
-- [Discovery Analyses](#discovery-analyses)
-- [Output Files](#output-files)
-- [Reproducing Results](#reproducing-results)
-- [Citation](#citation)
-- [License](#license)
+Benchmarked across four independent datasets spanning three diseases and two tissue types:
 
----
+| Dataset | Donors | FDR-sig pairs | Not in LIANA | Not in CellChat | AUROC |
+|---------|--------|---------------|--------------|-----------------|-------|
+| Kang 2018 — IFN-β PBMC | 16 | 5 / 9 | 3/5 (60%) | 3/5 (60%) | **1.000** vs 0.506 |
+| COVID Blood Atlas — PBMC | 124 | 49 / 127 | 32/49 (65%) | 20/49 (41%) | **1.000** vs 0.506 |
+| Perez 2022 — SLE PBMC | 149 | 33 / 40 | 19/33 (58%) | 19/33 (58%) | **1.000** vs 0.506 |
+| Smillie 2019 — Crohn colon | 18 | 17 / 34 | 12/17 (71%) | 12/17 (70%) | **1.000** vs 0.506 |
 
-## Why NEUROSCOPE
+AUROC is from a synthetic ground-truth experiment (true-signal vs dead-receiver pairs, seed 42). Co-expression scoring achieves 0.506 ≈ chance across all four datasets.
 
-CellChat and similar tools score L-R co-expression using the trimean statistic. For any gene expressed in fewer than 50% of cells, trimean = 0 regardless of expression level. This is a structural property of the trimean formula (Jin et al. 2021, eq. 1): when Q1 = Q2 = 0, the result is always zero, silencing biologically active interactions at realistic single-cell sparsity.
-
-NEUROSCOPE replaces the trimean with **KSG mutual information channel capacity**: I(ligand_distribution; receptor_distribution) estimated via the Kraskov-Stögbauer-Grassberger k-NN estimator on donor-level cluster means. This captures inter-donor variation even at 15% per-cell sparsity.
-
-**Benchmark 1 — Kang 2018 PBMC, GSE96583 (n = 16 pseudobulk samples, 8 donors × 2 conditions):**
-- 5/5 NEUROSCOPE top capacity-significant pairs were invisible to CellChat (CellChat trimean = 0 in all cluster combinations)
-- Synthetic ground-truth AUROC: KSG = **1.000** vs. co-expression scoring = 0.506
-- Top capacity-only pairs: CXCL11→CXCR3, IL1RN→IL1R2, CXCL10→CXCR3 (IFN-inducible chemokines and cytokine regulators — biologically coherent)
-
-**Benchmark 2 — COVID Blood Atlas, Stephenson 2021 (n = 124 donors, 3 conditions):**
-- 49 FDR-significant pairs from 127 tested (KSG channel capacity)
-- CellChat missed 20/49 (41%) — 18 of those 20 attributable to the trimean zero-floor
-- CellPhoneDB missed 5/49 (10%)
-- Top pairs: ALOX5→CYSLTR1, PTGES3→PTGER4, CD55→ADGRE5 (eicosanoid and complement pathways)
+Full results: [`results/NEUROSCOPE_v52_figures.pdf`](results/NEUROSCOPE_v52_figures.pdf) and [`results/RUN_LOG.md`](results/RUN_LOG.md).
 
 ---
 
-## Key Algorithm
+## How It Works
 
-**Channel capacity** (implemented in `functions/estimate_channel_capacity.m`) is computed as:
+Standard tools (CellChat, CellPhoneDB, LIANA) score `mean(ligand) × mean(receptor)` or its variants within a sample. When a gene is expressed in fewer than 50% of cells, CellChat's trimean collapses to zero regardless of expression level — a structural property of the formula that silences biologically active interactions in sparse data.
 
-1. Aggregate single-cell expression to donor-level cluster means (reduces noise, enables kNN)
-2. Run KSG k-NN mutual information estimator on paired (ligand_mean, receptor_mean) vectors across donors
-3. Normalize by sender entropy: capacity = I(X;Y) / H(X) ∈ [0, 1]
-4. Bootstrap 500 resamplings of donor observations to produce 95% BCa confidence intervals
+NEUROSCOPE instead computes per-donor cluster means (one value per donor per cluster), then estimates the KSG k-NN mutual information between paired ligand and receptor vectors across donors. This preserves inter-donor variation that is real biological signal, even when within-sample sparsity is high.
 
-Entropy of donor-level means uses a mixed-distribution decomposition that handles zero-inflation:
-H(X) = H_Bernoulli(p₀) + (1 − p₀) × H_continuous(X | X > 0)
-
-Pairs with capacity ≤ 0 after permutation testing are not called as real interactions.
-
-The final `InformationScore` reported in `channel_rankings.csv` combines:
-
-```
-InformationScore = 0.60 × CondCapacity
-                 + 0.25 × (1 − FDR)
-                 + 0.15 × CondFrequency_normalized
-```
+Channel capacity = I(ligand; receptor) / H(ligand), normalized to [0, 1]. Significance is assessed by permutation test (199 shuffles) with BH-FDR correction. Confidence intervals use BCa bootstrap (500 donor resamples).
 
 ---
 
 ## Installation
 
-**Requirements:**
-- MATLAB R2021b or later
+**MATLAB** (R2021b or later):
 - Statistics and Machine Learning Toolbox
-- Deep Learning Toolbox (for NMF and autoencoder modules; pipeline falls back to PCA when absent)
+- Deep Learning Toolbox (optional — used for NMF; falls back to PCA if absent)
 
-**Python requirements** (for data preparation and CellChat comparison):
+**Python** (data preparation and comparisons):
 ```bash
-pip install anndata scanpy scipy numpy pandas h5py
+pip install anndata scanpy scipy numpy pandas h5py fsspec
 ```
 
-**Setup:**
-```matlab
-addpath(genpath('functions'));
+**R** (NicheNet comparison only):
+```bash
+Rscript scripts/install_nichenetr.R
 ```
 
-CellPhoneDB interaction tables are bundled in `converted/` (CSV files only — see `.gitignore` for what is excluded).
+No other setup needed. CellPhoneDB reference tables are bundled in `converted/`.
 
 ---
 
 ## Quick Start
 
-### Run on the Kang 2018 benchmark dataset
+**Run on one of the benchmark datasets:**
+```bash
+# 1. Download and prepare expression data
+python scripts/prep_kang2018.py
 
-```matlab
-% Prepare data first (Python):
-% python prep_kang2018.py
-
-% Then run NEUROSCOPE:
-run_kang2018
+# 2. Run the pipeline (from repo root)
+matlab -batch "run('runs/kang2018.m')"
 ```
 
-### Run on the COVID Blood Atlas (Stephenson 2021, 124 donors)
+Results appear in `results/kang2018/`.
 
-```matlab
-% python prep_covid_atlas.py
-run_covid_atlas
-```
-
-### Run on your own dataset
-
+**Run on your own data:**
 ```matlab
 config = struct();
-config.dataset_name        = 'MyDataset';
-config.condition_name      = 'Condition';
-config.reference_name      = 'Reference';   % leave '' if none
-config.expr_path           = 'path/to/expression_sparse.mat';
-config.metadata_path       = 'path/to/cell_metadata.csv';
-config.output_dir          = 'results/';
-config.n_permutations      = 50;
-config.fdr_threshold       = 0.05;
+config.dataset_name  = 'MyStudy';
+config.expr_path     = 'path/to/expression_sparse.mat';   % cells × genes
+config.metadata_path = 'path/to/cell_metadata.csv';        % CellID, Cluster, donor_id
+config.cellphonedb_dir = 'converted';
+config.output_dir    = 'results/mystudy';
+config.n_permutations = 200;
+config.fdr_threshold  = 0.05;
+config.run_ml         = false;   % set true for NMF + causal inference
+config.random_seed    = 42;
 
 NEUROSCOPE(config);
 ```
 
-### Compare to CellChat (requires R 4.x + CellChat)
-
-```bash
-# Install CellChat first:
-Rscript install_r_cellchat.R
-
-# Run comparison:
-python compare_cellchat.py
-```
-
 ---
 
-## Input Data Format
+## Input Format
 
-### Expression matrix
-Sparse MATLAB matrix (cells × genes) saved as `.mat`. Variable name: `expr_matrix`.
+**Expression matrix** — MATLAB sparse matrix (cells × genes), saved as `.mat` with variable name `expr_matrix`. Prep scripts generate this from public H5AD files.
 
-### Cell metadata
-CSV with one row per cell:
+**Cell metadata** — CSV with one row per cell:
 
 | Column | Required | Description |
 |--------|----------|-------------|
-| CellID | Yes | Unique cell identifier |
-| Cluster | Yes | Integer cluster assignment |
-| donor_id | Yes (for causal analysis) | Donor/patient identifier |
-| x_coord, y_coord | No | Spatial coordinates |
-
-### CellPhoneDB tables (bundled)
-The `converted/` directory contains pre-processed CellPhoneDB v3 CSV tables:
-- `interaction_table.csv`
-- `protein_table.csv`
-- `multidata_table.csv`
-- `complex_table.csv`
+| `CellID` | Yes | Unique integer cell index |
+| `Cluster` | Yes | Integer cluster assignment (1-based) |
+| `donor_id` | Yes | Donor / patient identifier (enables KSG cross-sample mode) |
 
 ---
 
-## Pipeline Modules
+## Reproducing the Benchmarks
 
-| Step | Function | What it does |
-|------|----------|--------------|
-| 1b | `preprocess_expression` | scran-style normalization, HVG selection (3000 genes) |
-| 2 | `build_communication_network` | KSG channel capacity scoring of all L-R pairs |
-| 2b | `compute_cell_communication_profiles` | Per-cell sending/receiving scores → communication states |
-| 3 | `identify_differential_channels` | Wilcoxon on channel strengths + capacity-based permutation test |
-| 4b | `rank_communication_channels` | Rank by InformationScore (capacity + significance + frequency) |
-| 7 | `identify_communication_hubs` | Hub cluster analysis (betweenness centrality) |
-| 8b | `compute_downstream_response` | Transcriptional response in receiver cells |
-| 8c | `infer_causal_interactions` | IV/2SLS causal inference using donor_id as instrument |
-| 8d | `compute_communication_entropy` | Spectral communities from communication Laplacian |
-| 8e | `discover_communication_programs` | NMF tensor decomposition |
-| 11 | `generate_science_report` | Plain-text discovery report with bootstrap CIs |
+All four benchmarks can be reproduced from scratch. Data is downloaded from public repositories (GEO, CellxGene).
+
+```bash
+# Kang 2018 IFN-beta PBMC
+python scripts/prep_kang2018.py
+matlab -batch "run('runs/kang2018.m')"
+
+# COVID Blood Atlas (Stephenson 2021)
+python scripts/prep_covid_atlas.py
+matlab -batch "run('runs/covid_atlas.m')"
+
+# Lupus SLE PBMC (Perez 2022)
+python scripts/prep_lupus.py
+matlab -batch "run('runs/lupus.m')"
+
+# Crohn's disease colon (Smillie 2019)
+python scripts/prep_smillie2019.py
+matlab -batch "run('runs/smillie2019.m')"
+```
+
+**Comparison against existing tools:**
+```bash
+# LIANA multi-method (CellPhoneDB, CellChat, NATMI, Connectome)
+pip install liana
+python scripts/compare_liana.py
+
+# NicheNet LR-network comparison
+Rscript scripts/compare_nichenet.R
+```
+
+Expected runtimes on a standard laptop: Kang 3 min, Smillie 6 min, Lupus ~17 hr (149 donors × 40 pairs × 200 permutations), COVID Atlas ~21 hr.
 
 ---
 
-## Discovery Analyses
+## Repository Structure
 
-All discovery functions are in `functions/` and can be run independently.
-
-| Function | What it finds |
-|----------|---------------|
-| `discover_spatial_communication_niches` | Microenvironmental communication domains (Fisher's exact + BH-FDR) |
-| `discover_receptor_promiscuity` | Hub receptors with high ligand Shannon entropy |
-| `discover_autocrine_signaling` | Self-sustaining co-expressed L-R loops within clusters |
-| `discover_feedback_circuits` | Directed cycles (geometric mean circuit strength) |
-| `discover_network_motifs` | Enriched 3-node subgraph patterns vs. random expectation |
-| `discover_network_fragility` | Percolation curves + pairwise drug synergy scores |
-| `discover_communication_monopolies` | Exclusive cluster-to-cluster signaling channels |
-| `discover_communication_role_asymmetry` | Broadcaster vs. Listener cluster classification |
+```
+NEUROSCOPE.m          # Main pipeline entry point
+functions/            # All MATLAB pipeline modules
+runs/                 # Per-dataset configs (edit these to change parameters)
+  kang2018.m
+  covid_atlas.m
+  lupus.m
+  smillie2019.m
+  power_analysis_ksg.m
+scripts/              # Data prep and comparison scripts
+  prep_*.py           # Download + convert each dataset
+  compare_*.py / .R   # Benchmark comparisons
+  make_figure_doc.py  # Regenerate results/NEUROSCOPE_v52_figures.pdf
+converted/            # CellPhoneDB reference tables (bundled)
+results/              # Benchmark outputs — one subfolder per dataset
+docs/                 # Cleanup notes and file inventory
+```
 
 ---
 
 ## Output Files
 
-```
-results/{dataset}/
-├── {dataset}_science_report.txt            — Top interactions with capacity + 95% BCa CIs
-├── channel_rankings.csv                    — All channels ranked by InformationScore
-├── {dataset}_specific_interactions.csv     — All differential channels
-├── {dataset}_specific_significant_only.csv — FDR < 0.05 subset
-├── networks/
-│   └── {dataset}_full_network.csv          — Complete scored network
-├── novel_discoveries/
-│   ├── communication_roles.csv             — Broadcaster/Listener classification
-│   ├── downstream_response_genes.csv       — Transcriptional response targets
-│   ├── causal_interactions.csv             — IV/2SLS causal estimates
-│   ├── entropy_landscape.csv              — Spectral community assignments
-│   └── communication_programs.csv          — NMF program loadings
-├── statistics/
-│   ├── differential_channels.csv           — Wilcoxon + capacity test results
-│   └── differential_channels_significant.csv
-├── paper_figures/                           — Publication figures
-└── poster_figures/
-```
+Each dataset produces a subfolder under `results/` containing:
 
-### Key columns in `channel_rankings.csv`
+| File | Description |
+|------|-------------|
+| `channel_rankings.csv` | All L-R pairs ranked by channel capacity |
+| `*_specific_interactions.csv` | Differential channels (condition vs reference) |
+| `*_specific_significant_only.csv` | FDR < 0.05 subset |
+| `*_target_rankings.csv` | Therapeutic target rankings |
+| `*_science_report.txt` | Narrative report with top interactions and CIs |
+| `comparison_liana_vs_neuroscope.csv` | LIANA overlap analysis |
+| `comparison_cellchat_vs_neuroscope.csv` | CellChat overlap analysis |
+| `comparison_nichenet_vs_neuroscope.csv` | NicheNet LR-network membership |
+
+Key columns in `channel_rankings.csv`:
 
 | Column | Description |
 |--------|-------------|
-| Ligand / Receptor | Gene symbols |
-| CondCapacity | KSG channel capacity I(L;R)/H(L) in condition, range [0, 1] |
-| RefCapacity | Capacity in reference condition |
-| FDR / FDRCapacity | BH-adjusted p-values (expression and capacity tests) |
-| BootCI_lo / BootCI_hi | 95% BCa bootstrap CI (500 donor resamples) |
-| InformationScore | Composite rank score (capacity + FDR + frequency) |
-| CausalScore | IV/2SLS causal estimate; NaN when instrument weak |
-| Direction | 'Up', 'Down', or 'Both' |
-| Pathway | Annotated signalling pathway |
-
----
-
-## Reproducing Results
-
-### Kang 2018 PBMC (GSE96583)
-
-```bash
-# 1. Download and prepare data:
-python prep_kang2018.py
-
-# 2. Run NEUROSCOPE (in MATLAB):
-run_kang2018
-
-# 3. Run CellChat comparison:
-python compare_cellchat.py
-```
-
-Expected output: `results/kang2018/Kang2018_science_report.txt`
-
-Key result: 5/5 top capacity-significant pairs have CellChat trimean = 0 in all cluster combinations. AUROC 1.000 vs. 0.506.
-
-### COVID Blood Atlas (Stephenson 2021)
-
-```bash
-python prep_covid_atlas.py
-# Then in MATLAB:
-run_covid_atlas
-# Then:
-python compare_cellchat_covid.py
-```
-
-Expected output: `results/covid_atlas/COVIDAtlas_science_report.txt`
-
-Key result: 49 FDR-significant pairs; CellChat misses 20/49 (41%), 18 attributable to zero-floor. Runtime ~135 min on a 2024 laptop.
-
-### Lupus PBMC (Perez et al. 2022, benchmark 3)
-
-```bash
-python prep_lupus.py
-# Then in MATLAB:
-run_lupus
-```
-
-Expected: tight bootstrap CIs from n=162 donors; stronger 2SLS causal validation power.
-
-### Ulcerative Colitis colon (Smillie et al. 2019, benchmark 4)
-
-```bash
-python prep_smillie2019.py
-# Then in MATLAB:
-run_smillie2019
-```
-
-Non-blood tissue benchmark. Expected L-R axes: TGFB1 signalling, WNT, IL-6 in epithelial-immune crosstalk.
-
-### Multi-method comparison (NicheNet + LIANA)
-
-```bash
-# NicheNet (requires R + nichenetr):
-Rscript compare_nichenet.R
-
-# LIANA multi-method (CellPhoneDB, CellChat, NATMI, Connectome):
-pip install liana anndata scanpy
-python compare_liana.py
-```
-
----
-
-## Prior Biological Validation of Top Predicted Interactions
-
-NEUROSCOPE's top-ranked pairs across both PBMC benchmarks are supported by
-independent published experimental evidence, providing external validation of the
-computational predictions:
-
-| L-R pair | Dataset | Published evidence |
-|----------|---------|-------------------|
-| CXCL10 → CXCR3 | Kang 2018 | IFN-β-inducible; monocyte-to-T-cell axis. Validated in Loetscher et al. 1996 *J Exp Med*; CXCL10 is a canonical IFN-stimulated gene. |
-| CXCL11 → CXCR3 | Kang 2018 | Co-induced with CXCL10 by IFN-β; drives Th1 chemotaxis. Luster et al. 1998 *J Exp Med*. |
-| IL1RN → IL1R2 | Kang 2018 | IL-1 signalling regulatory axis; IL1RN (anakinra) is an FDA-approved biologic. Dinarello 2011 *Eur Cytokine Netw*. |
-| CCL5 → CCR5 | COVID Atlas | Monocyte-to-T-cell chemotaxis; CCL5 elevated in severe COVID. Tomazou et al. 2021 *Front Immunol*. |
-| TGFB1 → TGFBR2 | COVID Atlas | T cell exhaustion and monocyte-to-T cross-talk; central COVID immunopathology axis. Sanchez-Cerrillo et al. 2020 *Nat Commun*. |
-| IFNG → IFNGR1 | COVID Atlas | IFN-γ monocyte activation; IFNG serum levels predict COVID severity. Liao et al. 2020 *Nat Med*. |
-| PTGES3 → PTGER4 | COVID Atlas | Eicosanoid signalling; prostaglandin-mediated immune suppression. Zhu et al. 2020 *JCI Insight*. |
-
-These pairs are recovered by NEUROSCOPE but missed by CellChat (trimean zero-floor), providing
-cross-method and cross-study validation. Note that this is a computational methods paper;
-prospective experimental validation of novel predictions is beyond scope and is
-identified as a direction for follow-up work.
+| `CondCapacity` | KSG channel capacity I(L;R)/H(L) ∈ [0, 1] |
+| `FDRCapacity` | BH-adjusted permutation p-value |
+| `BootCI_lo/hi` | 95% BCa bootstrap CI (500 donor resamples) |
+| `InformationScore` | Composite rank score |
+| `CausalScore` | IV/2SLS causal estimate (NaN when instrument weak) |
 
 ---
 
 ## Citation
-
-If you use NEUROSCOPE in your research, please cite:
 
 > Ananda A. *NEUROSCOPE: Information-Theoretic Cell-Cell Communication Analysis via KSG Channel Capacity.* 2026.
 
@@ -332,18 +191,4 @@ If you use NEUROSCOPE in your research, please cite:
 
 ## License
 
-MIT License. See `LICENSE` for details.
-
----
-
-## Contributing
-
-Issues and pull requests welcome. Please ensure:
-- All `fprintf` strings use plain ASCII (no Unicode box-drawing)
-- No dataset-specific hardcoding — use `config.dataset_name` throughout
-- Statistical methods are documented in function headers
-- New functions follow the same struct output convention as existing ones
-
----
-
-*NEUROSCOPE v5.2 — Information-theoretic cell communication, any tissue, any condition.*
+MIT. See [`LICENSE`](LICENSE).
