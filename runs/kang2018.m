@@ -1,7 +1,19 @@
-% run_kang2018.m  —  NEUROSCOPE v5.2 on Kang et al. 2018 PBMC
-% 8 donors x 2 conditions (ctrl + IFN-beta), 8 cell types.
-% Run: matlab -batch "cd('c:/arjun-project/neuroscope'); run_kang2018"
+% Kang 2018 IFN-beta PBMC benchmark (GSE96583)
+%
+% 8 donors, 2 conditions (control + IFN-beta stimulated), 8 PBMC cell types.
+% This is the core validation dataset — IFN-beta stimulation is a known
+% intervention, so the ground truth is well-defined.
+%
+% Run from the repo root:
+%   matlab -batch "run('runs/kang2018.m')"
+%
+% Data prep (first time only):
+%   python scripts/prep_kang2018.py
 
+% Navigate to repo root so relative paths work
+[this_dir, ~, ~] = fileparts(mfilename('fullpath'));
+prev_dir = cd(fullfile(this_dir, '..'));
+cleanup  = onCleanup(@() cd(prev_dir));
 addpath(genpath('functions'));
 
 config = struct();
@@ -19,11 +31,4 @@ config.fdr_threshold  = 0.05;
 config.run_ml         = false;
 config.random_seed    = 42;
 
-fprintf('\n=== NEUROSCOPE v5.2 — Kang et al. 2018 PBMC ===\n\n');
-fprintf('8 donors x 2 conditions = 16 pseudobulk samples\n');
-fprintf('KSG MI active (MIN_N=10 threshold)\n');
-fprintf('Cell types: CD4T, CD8T, B, NK, CD14+Mono, FCGR3A+Mono, DC, MK\n\n');
-
 NEUROSCOPE(config);
-
-fprintf('\nDone. Results in: %s\n', config.output_dir);
