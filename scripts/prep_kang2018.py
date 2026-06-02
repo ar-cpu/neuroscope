@@ -18,7 +18,7 @@ import gzip, os, sys
 import warnings
 warnings.filterwarnings('ignore')
 
-BASE = 'c:/arjun-project/neuroscope/converted/kang2018'
+BASE = 'converted/kang2018'  # run from repo root
 OUT_DIR = BASE
 
 print("=== Kang 2018 PBMC prep ===\n")
@@ -107,7 +107,7 @@ print(f"  Normalized matrix: {X_norm.shape}  max={X_norm.max():.2f}")
 print("\nFiltering genes...")
 lr_genes_set = set()
 try:
-    gt = pd.read_csv('c:/arjun-project/neuroscope/converted/gene_table.csv')
+    gt = pd.read_csv('converted/gene_table.csv')
     lr_genes_set = set(gt['hgnc_symbol'].str.upper().dropna().values)
     lr_idx = np.where(np.isin(gene_symbols, list(lr_genes_set)))[0]
     print(f"  L-R genes in matrix: {len(lr_idx)}")

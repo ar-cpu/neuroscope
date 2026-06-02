@@ -16,7 +16,9 @@
 # Run:     Rscript compare_nichenet.R
 
 suppressPackageStartupMessages({
-  .libPaths(c("C:/Users/arjun/R/library", .libPaths()))
+  # Add user R library if it exists (platform-portable)
+  user_lib <- Sys.getenv("R_LIBS_USER", unset=file.path(path.expand("~"), "R", "library"))
+  if (dir.exists(user_lib)) .libPaths(c(user_lib, .libPaths()))
   library(nichenetr)
   library(dplyr)
 })

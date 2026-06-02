@@ -1,81 +1,73 @@
 # NEUROSCOPE Repository Cleanup Manifest
 
-**Date:** 2026-05-31
-**Purpose:** Prepare the repository for public GitHub publication.
-
-**Method:** Files listed here were **untracked** (`git rm --cached`), NOT deleted.
-Every one of them:
-- **still exists on your local disk** (your working copy is untouched), and
-- **remains in git history** (recoverable from any prior commit).
-
-Nothing was permanently destroyed. All source code was kept. This document plus the
-per-folder manifests record exactly what was removed from version control and how to
-bring it back.
+**Date:** 2026-05-31  
+**Purpose:** Prepare the repository for public GitHub publication.  
+**Method:** Files were untracked from git (`git rm --cached`), NOT deleted from disk. Scripts were moved to a `scripts/` subfolder. Per-folder manifests have full details.
 
 ---
 
-## Why this cleanup was needed
+## Nothing was permanently destroyed
 
-Large data/intermediate/log files had been committed to git because the `.gitignore`
-patterns did not match their actual filenames:
+Every removed file:
+- **still exists on your local disk** (working copy is untouched)
+- **remains in git history** (recoverable from any commit before `3961d61`)
 
-1. **`converted/nichenet/ligand_target_matrix.rds` is 262 MB.** GitHub **hard-blocks
-   any file larger than 100 MB** — a `git push` would have failed outright.
-2. `.gitignore` ignored `converted/kang2018/` and `converted/covid_atlas/` but the
-   newer `converted/lupus/`, `converted/smillie2019/`, and `converted/nichenet/`
-   directories were never added, so their large matrices got committed.
-3. `.gitignore` ignored `results/**/*_log.txt`, but the actual run logs are named
-   `*_run.log` / `*.log`, so multi-megabyte logs slipped through.
-4. `results/**/liana_all_methods_*.csv` are raw per-cluster-pair dumps (up to 84 MB) —
-   the **summarized** `comparison_*_vs_neuroscope.csv` files are the real results and
-   were kept.
-
-Total removed from version control: **~460 MB** across 25 files.
+To restore a file to git: `git add -f <path>`  
+To recover from history: `git checkout 3961d61^ -- <path>`
 
 ---
 
-## What was KEPT (all source code + all summarized results)
+## What was done
 
-- **All source code:** `NEUROSCOPE.m`, everything in `functions/`, all `run_*.m`,
-  all `prep_*.py`, all `compare_*.py` / `compare_*.R`, `make_figure_doc.py`,
-  `power_analysis_ksg.m`, and the install helpers. (User decision: keep all scripts
-  for reproducibility.)
-- **The figure deliverable:** `results/NEUROSCOPE_v52_figures.pdf` (1.9 MB) — contains
-  every benchmark figure and the full Results section.
-- **All summarized results:** `channel_rankings.csv`, `comparison_*_vs_neuroscope.csv`,
-  `*_science_report.txt`, `comparison_summary.txt`, `*_specific_interactions.csv`,
-  `*_target_rankings.csv`, `cellchat_comparison_summary.csv`,
-  `nichenet_comparison_summary.csv`, `RUN_LOG.md`.
-- **CellPhoneDB reference tables** in `converted/` top level (small, required to run):
-  `gene_table.csv`, `protein_table.csv`, `interaction_table.csv`, `complex_table.csv`,
-  `complex_composition_table.csv`, `multidata_table.csv`,
-  `gene_synonym_to_gene_name.csv`, `receptor_to_transcription_factor.csv`.
+### Commit `3961d61` — Untrack large data/log files (~460 MB total)
 
----
+| Category | Files | Size |
+|----------|-------|------|
+| NicheNet prior matrices | `converted/nichenet/*.rds` | **262 MB** (GitHub hard-blocks >100 MB) |
+| Lupus expression data | `converted/lupus/*.mat` + metadata | 88 MB |
+| Smillie expression data | `converted/smillie2019/*.mat` + metadata | 5 MB |
+| LIANA intermediate dumps | `results/**/liana_all_methods_*.csv` | 95 MB |
+| Run logs | `results/**/*run*.log`, `*.log` | 20 MB |
 
-## How to restore any untracked file
+See [converted/CLEANUP_MANIFEST.md](converted/CLEANUP_MANIFEST.md) and [results/CLEANUP_MANIFEST.md](results/CLEANUP_MANIFEST.md) for per-file regeneration commands.
 
-The file is already on your disk — nothing is needed to keep using it locally. To put
-it back under version control:
+### This commit — Move scripts + fix portable paths
 
-```bash
-git add -f <path>
-```
-
-To recover a copy from git history if the local file is ever lost:
-
-```bash
-git checkout c5bea60 -- <path>     # c5bea60 = last commit before cleanup
-```
-
-To regenerate from scratch, see the per-folder manifests for the exact command.
+Moved data-prep and comparison scripts to `scripts/`. Fixed hardcoded `C:/Users/arjun/...` absolute paths in 5 files (replaced with portable `Sys.getenv("R_LIBS_USER")` / relative paths so any user can run them).
 
 ---
 
-## Detailed per-folder manifests
+## Repo root after cleanup
 
-- [converted/CLEANUP_MANIFEST.md](converted/CLEANUP_MANIFEST.md) — 8 data files (~358 MB)
-- [results/CLEANUP_MANIFEST.md](results/CLEANUP_MANIFEST.md) — 17 log/intermediate files (~102 MB)
+| Item | Purpose |
+|------|---------|
+| `NEUROSCOPE.m` | Main pipeline entry point |
+| `functions/` | All MATLAB pipeline modules (untouched) |
+| `run_*.m` | Per-dataset launcher configs |
+| `make_figure_doc.py` | Figure PDF generator |
+| `power_analysis_ksg.m` | KSG MI power analysis |
+| `converted/` | CellPhoneDB reference tables (small, required to run) |
+| `results/` | All benchmark outputs, comparison CSVs, figures PDF |
+| `scripts/` | Data prep + comparison scripts (moved from root) |
+| `README.md`, `RESULTS.md`, `LICENSE` | Documentation |
 
-**Last commit before cleanup:** `c5bea60` ("Add comprehensive Results section to PDF").
-Every file is in its fully-tracked state in that commit and earlier.
+---
+
+## `scripts/` folder contents
+
+| Script | Category | What it does |
+|--------|----------|-------------|
+| `prep_kang2018.py` | PREP | Download + convert Kang 2018 IFN-beta PBMC from GEO |
+| `prep_covid_atlas.py` | PREP | Stream COVID Blood Atlas from CellxGene |
+| `prep_lupus.py` | PREP | Stream Lupus PBMC from CellxGene (Perez 2022) |
+| `prep_smillie2019.py` | PREP | Download Smillie 2019 colon from CellxGene |
+| `compare_liana.py` | COMPARE | Run LIANA rank_aggregate vs NEUROSCOPE (4 datasets) |
+| `compare_cellchat.py` | COMPARE | Full CellChat permutation test (Kang 2018) |
+| `compare_cellchat_all.py` | COMPARE | Extract CellChat scores from LIANA output (all 4) |
+| `compare_cellchat_covid.py` | COMPARE | CellChat for COVID Atlas |
+| `compare_nichenet.R` | COMPARE | NicheNet LR-network membership (all 4 datasets) |
+| `run_cellchat_r.R` | COMPARE | Native R CellChat (Kang 2018 validation) |
+| `install_nichenetr.R` | INSTALL | Install nichenetr from GitHub (saeyslab/nichenetr) |
+| `install_r_cellchat.R` | INSTALL | Install R CellChat dependencies |
+
+All scripts run from the **repository root**: `python scripts/prep_kang2018.py`

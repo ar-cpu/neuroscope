@@ -3,7 +3,7 @@
 # Run this once:
 #   "C:/Program Files/R/R-4.5.3/bin/Rscript.exe" install_r_cellchat.R
 
-R_LIB <- "C:/Users/arjun/R_libs"
+R_LIB <- Sys.getenv("R_LIBS_USER", unset=file.path(path.expand("~"), "R", "library"))
 dir.create(R_LIB, recursive=TRUE, showWarnings=FALSE)
 .libPaths(c(R_LIB, .libPaths()))
 cat("Library:", R_LIB, "\n\n")

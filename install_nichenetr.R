@@ -1,7 +1,0 @@
-.libPaths(c('C:/Users/arjun/R/library',.libPaths()))
-options(repos=c(CRAN='http://cloud.r-project.org'),timeout=300)
-cat('Installing deps...\n')
-install.packages(c('RcppArmadillo','remotes','dplyr','ggplot2','tidyr'),lib='C:/Users/arjun/R/library',quiet=TRUE)
-library(remotes,lib.loc='C:/Users/arjun/R/library')
-remotes::install_github('saeyslab/nichenetr',lib='C:/Users/arjun/R/library',upgrade='never')
-cat('DONE\n')

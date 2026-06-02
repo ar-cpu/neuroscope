@@ -12,7 +12,7 @@
 #   install.packages(c("Seurat", "Matrix", "R.matlab", "dplyr"))
 
 # Add user library to search path
-R_LIB <- "C:/Users/arjun/R_libs"
+R_LIB <- Sys.getenv("R_LIBS_USER", unset=file.path(path.expand("~"), "R", "library"))
 if (dir.exists(R_LIB)) .libPaths(c(R_LIB, .libPaths()))
 
 suppressWarnings(suppressMessages({
