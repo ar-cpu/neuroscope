@@ -1,4 +1,4 @@
-# ── Raw and downloaded data ───────────────────────────────────────────────────
+# Raw and downloaded data 
 raw_data/
 
 # Per-dataset expression matrices (regenerate with scripts/prep_*.py)
@@ -18,18 +18,18 @@ converted/**/*.mat
 converted/**/*.npz
 converted/**/*.h5ad
 
-# ── Results: large binary checkpoints ────────────────────────────────────────
+# Results: large binary checkpoints
 results/**/*.mat
 results/**/*.fig
 
-# ── Results: run logs ─────────────────────────────────────────────────────────
+# Results: run logs 
 results/**/*.log
 results/**/*_log.txt
 
-# ── Results: raw LIANA dumps (kept as comparison_*_vs_neuroscope.csv instead) ─
+# Results: raw LIANA dumps (kept as comparison_*_vs_neuroscope.csv instead) 
 results/**/liana_all_methods_*.csv
 
-# ── Results: per-run generated directories ────────────────────────────────────
+# Results: per-run generated directories 
 results/**/paper_figures/
 results/**/poster_figures/
 results/**/ml_models/
@@ -37,7 +37,7 @@ results/**/networks/
 results/**/statistics/
 results/**/novel_discoveries/
 
-# ── Results: stale pipeline outputs auto-written to results/ root each run ────
+# Results: stale pipeline outputs auto-written to results/ root each run 
 results/causal_interactions.csv
 results/channel_rankings.csv
 results/communication_clusters.csv
@@ -59,14 +59,14 @@ results/analysis_metadata.json
 results/README.txt
 results/validation_ground_truth.png
 
-# ── MATLAB generated files ────────────────────────────────────────────────────
+# MATLAB generated files 
 *.asv
 *.mex*
 *.mexa64
 *.mexw64
 *.mexmaci64
 
-# ── Python ────────────────────────────────────────────────────────────────────
+# Python 
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -75,10 +75,10 @@ venv/
 .env
 .ipynb_checkpoints/
 
-# ── Claude Code memory (local only) ──────────────────────────────────────────
+# Claude Code memory (local only)
 .claude/
 
-# ── OS / editor ───────────────────────────────────────────────────────────────
+# OS / editor 
 .DS_Store
 Thumbs.db
 desktop.ini

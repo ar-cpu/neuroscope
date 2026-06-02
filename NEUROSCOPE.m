@@ -562,7 +562,7 @@ end
 t_total = toc(t_pipeline);
 
 fprintf('=============================================================\n');
-fprintf('NEUROSCOPE v5.2 complete in %.1f min\n\n', t_total/60);
+fprintf('NEUROSCOPE complete in %.1f min\n\n', t_total/60);
 fprintf('--- Information-Theoretic Communication Summary ---\n\n');
 
 fprintf('  L-R interactions with capacity > 0:  %d\n', length(condition_network.weights));

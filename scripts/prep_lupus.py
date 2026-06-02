@@ -1,5 +1,5 @@
 """
-prep_lupus.py  —  Perez et al. 2022 SLE PBMC (GSE174188 / CellxGene)
+prep_lupus.py - Perez et al. 2022 SLE PBMC (GSE174188 / CellxGene)
   Single-cell eQTL + cell-type analysis of systemic lupus erythematosus.
   162 donors (88 SLE, 49 healthy, 25 other), ~1.2M cells.
   Streams H5AD from CellxGene via HTTP range reads — no full download needed.

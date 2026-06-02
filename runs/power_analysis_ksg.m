@@ -17,7 +17,7 @@
 %
 % Outputs: power_analysis_results.txt, power_analysis_figures/
 %
-% Run: matlab -batch "cd('c:/arjun-project/neuroscope'); power_analysis_ksg"
+% Run from repo root: matlab -batch "run('runs/power_analysis_ksg.m')"
 
 addpath(genpath('functions'));
 rng(42);
