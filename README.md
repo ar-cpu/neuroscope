@@ -1,7 +1,5 @@
 # NEUROSCOPE
 
-![NEUROSCOPE banner](docs/banner.png)
-
 **Information-theoretic cell-cell communication analysis for single-cell RNA-seq.**
 
 NEUROSCOPE measures ligand-receptor signaling using KSG mutual information channel capacity instead of co-expression. The difference: co-expression methods check whether a ligand and receptor are both expressed in neighboring clusters. Channel capacity checks whether ligand variation across donors actually predicts receptor variation -- a stricter test that removes interactions with no measurable signal.
