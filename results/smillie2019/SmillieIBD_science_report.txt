@@ -1,7 +1,7 @@
 NEUROSCOPE Scientific Discovery Report
 Generated: 22-May-2026 18:32:31
 Dataset:   SmillieIBD
-Condition: CrohnDisease
+Condition: UlcerativeColitis
 Reference: Reference  (empty = one-sample mode)
 FDR cutoff: 0.05
 ============================================================

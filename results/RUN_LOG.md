@@ -285,7 +285,7 @@ Generated: 2026-05-22
 
 ---
 
-## LIANA Multi-Method Comparison — Smillie IBD (Crohn)
+## LIANA Multi-Method Comparison -- Smillie IBD (UC)
 
 **Method used:** LIANA rank_aggregate (liana 1.7.1, sample_key=donor_id, 41,756 interactions)
 

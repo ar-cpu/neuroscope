@@ -794,7 +794,7 @@ story.append(Spacer(1, 0.08 * inch))
 
 master_data = [
     ["Metric", "Kang 2018\n(IFN-beta PBMC)", "COVID Atlas\n(PBMC, n=124)", "Lupus\n(SLE PBMC, n=149)", "Smillie IBD\n(Colon, n=18)"],
-    ["Disease", "IFN-beta stimulation", "COVID-19 severity", "Systemic lupus\nerythematosus", "Crohn disease\nvs normal"],
+    ["Disease", "IFN-beta stimulation", "COVID-19 severity", "Systemic lupus\nerythematosus", "Ulcerative colitis\nvs normal"],
     ["Cells / Donors", "24,594 / 16", "24,284 / 124", "40,395 / 149", "9,385 / 18"],
     ["Cell types", "8 PBMC", "7 PBMC", "11 PBMC", "17 colon immune"],
     ["L-R pairs tested", "9", "127", "40", "34"],
