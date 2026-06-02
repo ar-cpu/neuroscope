@@ -1,7 +1,6 @@
 # NEUROSCOPE
 
-<!-- Replace the line below with your actual banner image once you have one -->
-<!-- ![NEUROSCOPE banner](docs/banner.png) -->
+![NEUROSCOPE banner](docs/banner.png)
 
 **Information-theoretic cell-cell communication analysis for single-cell RNA-seq.**
 
