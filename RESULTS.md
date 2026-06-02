@@ -1,6 +1,6 @@
 # NEUROSCOPE — Benchmark Results
 
-All results are fully reproducible from the data prep scripts and run scripts in this repository.
+All results are fully reproducible from the data prep scripts and run scripts in this repository. Detailed write-up below covers Datasets 1-2 (Kang 2018, COVID Atlas). Datasets 3-4 (Lupus SLE, Smillie UC) are summarized at the end; full results are in `results/NEUROSCOPE_figures.pdf` and `results/RUN_LOG.md`.
 
 ---
 
@@ -365,3 +365,40 @@ The core pipeline is in MATLAB. A Python/R reimplementation is planned. For now:
 
 ### Faculty affiliation
 This work was conducted independently without a faculty supervisor. A preprint is planned for bioRxiv to establish priority. Collaboration with a faculty mentor is being sought for journal submission.
+
+---
+
+## Dataset 3: Lupus SLE PBMC (Perez et al. 2022, GSE174188)
+
+**Setup:** 40,395 cells, 149 SLE donors, 11 PBMC subtypes. Balanced sampling (30 cells/cluster/donor). 635 HVGs after 0.1% min-cells filter.
+
+**Key results:**
+- 33/40 L-R pairs FDR-significant (83%)
+- Top channel: IFNL1 -> IFNLR1 (capacity 0.691) -- IFN-lambda axis prominent in SLE
+- 19/33 (58%) invisible to LIANA rank_aggregate; 19/33 (58%) invisible to CellChat
+- NMF rank 3; spectral gap 0.891; communication identity ARI = 0.008 (decoupled from transcriptome)
+- AUROC: KSG = 1.000 vs co-expression = 0.506
+
+**Cross-disease finding:** IL1RN -> IL1R2 invisible to LIANA and CellChat in both Kang 2018 and Lupus -- the IL-1 receptor axis is consistently detected by KSG MI but missed by expression-mean methods across two independent diseases.
+
+Full results: `results/lupus/channel_rankings.csv`, `results/lupus/Lupus_science_report.txt`, `results/NEUROSCOPE_figures.pdf`.
+
+Reproduce: `python scripts/prep_lupus.py && matlab -batch "run('runs/lupus.m')"`
+
+---
+
+## Dataset 4: Smillie 2019 Ulcerative Colitis Colon (GSE134809)
+
+**Setup:** 9,385 colon immune cells, 18 UC donors, 17 cell types. Only non-blood tissue in the benchmark suite.
+
+**Key results:**
+- 17/34 L-R pairs FDR-significant (50%)
+- Top channel: LCK -> CD8A (capacity 0.631) -- T-cell co-receptor signaling
+- 12/17 (71%) invisible to LIANA rank_aggregate -- highest exclusivity across all datasets
+- 7/34 (20.6%) causally validated by IV/2SLS -- highest causal rate (large per-donor effect sizes in UC)
+- Communication identity ARI = 0.031 (decoupled from transcriptome)
+- AUROC: KSG = 1.000 vs co-expression = 0.506
+
+Full results: `results/smillie2019/channel_rankings.csv`, `results/smillie2019/SmillieIBD_science_report.txt`, `results/NEUROSCOPE_figures.pdf`.
+
+Reproduce: `python scripts/prep_smillie2019.py && matlab -batch "run('runs/smillie2019.m')"`

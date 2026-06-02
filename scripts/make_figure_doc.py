@@ -104,7 +104,7 @@ sum_data = [
      "Perez et al. 2022", "Smillie et al. 2019"],
     ["Tissue", "PBMC", "PBMC", "PBMC", "Colon (non-blood)"],
     ["Condition", "IFN-β stimulation", "COVID-19 severity",
-     "SLE vs. healthy", "Crohn disease vs normal"],
+     "SLE vs. healthy", "Ulcerative colitis vs normal"],
     ["Donors / samples", "n=16 pseudobulk\n(8 donors × 2)", "n=124 donors",
      "n=162 donors\n(88 SLE + 49 ctrl)", "n=18 donors\n(9,385 cells)"],
     ["KSG-sig (FDR<0.05)", "5 / 9  (56%)", "49 / 127  (39%)",
@@ -505,7 +505,7 @@ story.append(Paragraph("Figure 6B — Benchmark 4: IBD Colon (Smillie et al. 201
 story.append(img(os.path.join(SMILLIE_DIR, "Fig1_information_landscape.png")))
 story.append(Spacer(1, 0.05 * inch))
 story.append(Paragraph(
-    "<b>Figure 6B.</b> Information landscape for IBD (Crohn disease) colon immune cells "
+    "<b>Figure 6B.</b> Information landscape for IBD (ulcerative colitis) colon immune cells "
     "(Smillie et al. 2019, CellxGene). 9,385 cells, 18 donors, 17 immune cell types. "
     "First non-blood-tissue benchmark — demonstrates NEUROSCOPE generalizability beyond PBMC. "
     "Strong cytokine (IL1B, IFNG), T-cell (LCK→CD8A), and adhesion (ICAM1→ITGB2) axes identified. "
@@ -516,7 +516,7 @@ story.append(img(os.path.join(SMILLIE_DIR, "Fig2_channel_types.png")))
 story.append(Spacer(1, 0.05 * inch))
 story += stat_block([
     "Dataset: Smillie et al. 2019 colon immune (CellxGene)",
-    "  Condition: Crohn disease vs normal   |   Donors: n=18   |   Cells: 9,385",
+    "  Condition: Ulcerative colitis vs normal   |   Donors: n=18   |   Cells: 9,385",
     "  Cell types: 17 immune types          |   Genes (HVG): 3,000",
     "",
     "Network results:",
@@ -736,7 +736,7 @@ story.append(Paragraph(
     "LIANA rank_aggregate (the current multi-method consensus), while achieving "
     "AUROC 1.000 vs 0.506 on a synthetic ground truth. Both results replicate "
     "identically across four independent single-cell datasets spanning three tissue "
-    "types (PBMC, colon) and four diseases (IFN-beta stimulation, COVID-19, SLE, Crohn disease). "
+    "types (PBMC, colon) and four diseases (IFN-beta stimulation, COVID-19, SLE, ulcerative colitis). "
     "The advantage arises because KSG mutual information operates on per-donor pseudobulk "
     "means — preserving inter-donor correlation even when within-sample sparsity exceeds 50% — "
     "whereas CellChat's trimean collapses to a structural zero at that sparsity threshold.",
@@ -966,7 +966,7 @@ story.append(Paragraph(
 story.append(Spacer(1, 0.12 * inch))
 
 # Smillie IBD table
-story.append(Paragraph("<b>Smillie IBD Colon</b>  (Crohn disease, n=18, 17 FDR-sig / 34 tested)", fig_title_style))
+story.append(Paragraph("<b>Smillie IBD Colon</b>  (Ulcerative colitis, n=18, 17 FDR-sig / 34 tested)", fig_title_style))
 smillie_ch = [
     ["Ligand",  "Receptor", "Capacity", "CI lo", "FDR",   "Pathway",       "LIANA", "CellChat", "NicheNet"],
     ["LCK",     "CD8A",    "0.631", "0.000", "0.0008", "T-cell",        "NO",  "NO",  "NO"],
@@ -1010,9 +1010,9 @@ story.append(Spacer(1, 0.08 * inch))
 cross_data = [
     ["L-R Pair", "Datasets", "Capacity range", "LIANA", "CellChat", "NicheNet", "Biological significance"],
     ["IL1RN -> IL1R2", "Kang 2018\n+ Lupus", "0.593–0.913", "NO", "NO", "NO", "IL-1 decoy receptor; anakinra target\n(IFN-beta PBMC + SLE PBMC)"],
-    ["IL1B -> IL1R2", "Lupus\n+ Smillie IBD", "0.593–0.624", "NO", "NO", "YES", "IL-1 beta signalling; key inflammatory axis\n(SLE PBMC + Crohn colon)"],
-    ["KLRB1 -> CLEC2D", "Lupus\n+ Smillie IBD", "0.382–0.437", "NO", "NO", "NO", "NK lectin-type checkpoint receptor\n(SLE PBMC + Crohn colon)"],
-    ["CLU -> TYROBP", "Kang 2018\n+ Smillie IBD", "0.340–0.755", "NO", "NO", "NO", "Complement regulator + DAP12 signalling\n(IFN-beta PBMC + Crohn colon)"],
+    ["IL1B -> IL1R2", "Lupus\n+ Smillie IBD", "0.593–0.624", "NO", "NO", "YES", "IL-1 beta signalling; key inflammatory axis\n(SLE PBMC + UC colon)"],
+    ["KLRB1 -> CLEC2D", "Lupus\n+ Smillie IBD", "0.382–0.437", "NO", "NO", "NO", "NK lectin-type checkpoint receptor\n(SLE PBMC + UC colon)"],
+    ["CLU -> TYROBP", "Kang 2018\n+ Smillie IBD", "0.340–0.755", "NO", "NO", "NO", "Complement regulator + DAP12 signalling\n(IFN-beta PBMC + UC colon)"],
 ]
 cross_ts = TableStyle([
     ("BACKGROUND",  (0,0), (-1,0),  colors.HexColor("#1a3a5c")),
@@ -1135,7 +1135,7 @@ causal_data = [
     ["Kang 2018", "16", "9", "0", "0%", "Underpowered: n=16 insufficient\nfor first-stage F>10"],
     ["COVID Atlas", "124", "127", "1", "0.8%", "n=124 barely sufficient;\nwide CIs expected"],
     ["Lupus", "149", "40", "1", "2.5%", "rank-deficient warnings expected\nat n=149 with 11 clusters"],
-    ["Smillie IBD", "18", "34", "7", "20.6%", "Highest rate — larger per-donor\neffect size in Crohn disease"],
+    ["Smillie IBD", "18", "34", "7", "20.6%", "Highest rate — larger per-donor\neffect size in UC"],
 ]
 caus_ts = TableStyle([
     ("BACKGROUND",  (0,0), (-1,0),  colors.HexColor("#1a3a5c")),
@@ -1157,7 +1157,7 @@ story.append(Paragraph(
     "2SLS power scales with n_donors. Kang (n=16) is underpowered by design — "
     "this benchmark was chosen because it has ground truth (IFN-beta condition is the known intervention), "
     "not because it has causal power. Smillie IBD (n=18) achieves 20.6% causal validation despite "
-    "small n, suggesting large per-donor effect sizes in Crohn disease. "
+    "small n, suggesting large per-donor effect sizes in UC. "
     "The 2SLS instrument (donor_id) is exogenous by design: donors are independent individuals "
     "whose genetic and environmental backgrounds causally affect ligand expression independently "
     "of which cell types they happen to have.",

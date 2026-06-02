@@ -236,14 +236,14 @@ Generated: 2026-05-22
 
 ---
 
-## Benchmark 4 — IBD Colon (Smillie et al. 2019, Crohn disease)
+## Benchmark 4 — IBD Colon (Smillie et al. 2019, Ulcerative Colitis)
 
 **Status:** COMPLETE (5.8 min)
 
 | Metric | Value |
 |--------|-------|
 | Dataset | Smillie et al. 2019 colon immune (CellxGene) |
-| Condition | Crohn disease vs normal |
+| Condition | Ulcerative colitis vs normal |
 | Pseudobulk samples | n = 18 donors |
 | Cells | 9,385 |
 | Genes (HVG) | 3,000 |
@@ -329,7 +329,7 @@ Expected results: partial overlap (~30-50%) with NEUROSCOPE significant pairs. I
 
 ## Summary Table (as of 2026-05-27)
 
-| | Kang 2018 | COVID Atlas | Lupus | Crohn Colon |
+| | Kang 2018 | COVID Atlas | Lupus | UC Colon |
 |--|-----------|-------------|-------|-------------|
 | Status | DONE | DONE | **DONE** | DONE |
 | Cells / Donors | 24,594 / 16 | 24,284 / 124 | **40,395 / 149** | 9,385 / 18 |
@@ -348,7 +348,7 @@ Expected results: partial overlap (~30-50%) with NEUROSCOPE significant pairs. I
 
 **Cross-benchmark LIANA exclusivity (58–71%):** KSG MI consistently detects
 statistically correlated L-R pairs invisible to rank_aggregate across
-PBMC (IFN-β, COVID, SLE) and colon tissue (Crohn). AUROC 1.000 vs 0.506 is
+PBMC (IFN-β, COVID, SLE) and colon tissue (ulcerative colitis, UC). AUROC 1.000 vs 0.506 is
 identical across all 4 benchmarks. NicheNet LR network coverage: 18–43% of
 NEUROSCOPE-sig pairs absent from NicheNet's prior network, indicating novel or
 recently characterized interactions beyond current prior knowledge.

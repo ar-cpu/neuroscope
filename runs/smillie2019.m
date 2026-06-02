@@ -1,6 +1,6 @@
-% Smillie 2019 Crohn's disease colon benchmark (CellxGene)
+% Smillie 2019 ulcerative colitis (UC) colon benchmark (CellxGene)
 %
-% 18 Crohn's disease donors, 9,385 colon immune cells, 17 cell types.
+% 18 UC donors, 9,385 colon immune cells, 17 cell types.
 % Only non-blood tissue in the benchmark suite — tests whether NEUROSCOPE
 % works beyond PBMC. Short runtime (~6 min).
 %
@@ -17,7 +17,7 @@ addpath(genpath('functions'));
 
 config = struct();
 config.dataset_name    = 'SmillieIBD';
-config.condition_name  = 'CrohnDisease';
+config.condition_name  = 'UlcerativeColitis';
 config.reference_name  = '';
 config.expr_path           = 'converted/smillie2019/smillie_expression_sparse.mat';
 config.metadata_path       = 'converted/smillie2019/smillie_cell_metadata.csv';

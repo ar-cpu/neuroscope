@@ -17,7 +17,7 @@ Benchmarked across four independent datasets spanning three diseases and two tis
 | Kang 2018, IFN-beta PBMC | 16 | 5 / 9 | 3/5 (60%) | 3/5 (60%) | **1.000** vs 0.506 |
 | COVID Blood Atlas, PBMC | 124 | 49 / 127 | 32/49 (65%) | 20/49 (41%) | **1.000** vs 0.506 |
 | Perez 2022, SLE PBMC | 149 | 33 / 40 | 19/33 (58%) | 19/33 (58%) | **1.000** vs 0.506 |
-| Smillie 2019, Crohn colon | 18 | 17 / 34 | 12/17 (71%) | 12/17 (70%) | **1.000** vs 0.506 |
+| Smillie 2019, UC colon | 18 | 17 / 34 | 12/17 (71%) | 12/17 (70%) | **1.000** vs 0.506 |
 
 AUROC comes from a synthetic ground-truth experiment (true-signal vs dead-receiver pairs). Co-expression scoring reaches 0.506 (chance) on all four datasets; KSG channel capacity reaches 1.000 on all four.
 
@@ -115,7 +115,7 @@ matlab -batch "run('runs/covid_atlas.m')"
 python scripts/prep_lupus.py
 matlab -batch "run('runs/lupus.m')"
 
-# Crohn colon (Smillie 2019)
+# UC colon (Smillie 2019)
 python scripts/prep_smillie2019.py
 matlab -batch "run('runs/smillie2019.m')"
 ```
