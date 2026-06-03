@@ -50,7 +50,7 @@ summarized `comparison_*_vs_neuroscope.csv` files are the real, kept results).
 
 > The key information from these logs (final stats, AUROC, FDR-sig counts, runtimes)
 > is preserved in human-readable form in **`RUN_LOG.md`** (kept) and in the Results
-> section of **`NEUROSCOPE_v52_figures.pdf`** (kept).
+> section of **`NEUROSCOPE_figures.pdf`** (kept).
 
 ---
 
@@ -68,7 +68,7 @@ summarized `comparison_*_vs_neuroscope.csv` files are the real, kept results).
 - `cellchat_R_*.csv/.txt` — native R CellChat outputs (Kang)
 
 **`results/` root:**
-- `NEUROSCOPE_v52_figures.pdf` — **the figure + Results deliverable** (1.9 MB)
+- `NEUROSCOPE_figures.pdf` — **the figure + Results deliverable** (1.9 MB)
 - `RUN_LOG.md` — master human-readable benchmark log (all 4 datasets)
 - `cellchat_comparison_summary.csv`, `nichenet_comparison_summary.csv` — cross-dataset summaries
 - `Lupus_*` / `SmillieIBD_*` `specific_interactions` / `target_rankings` CSVs — result tables
@@ -77,4 +77,4 @@ summarized `comparison_*_vs_neuroscope.csv` files are the real, kept results).
 
 > Per-run generated directories (`paper_figures/`, `ml_models/`, `statistics/`,
 > `networks/`, `novel_discoveries/`, `poster_figures/`) were already gitignored before
-> this cleanup. The figures they contain are all embedded in `NEUROSCOPE_v52_figures.pdf`.
+> this cleanup. The figures they contain are all embedded in `NEUROSCOPE_figures.pdf`.

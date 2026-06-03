@@ -10,16 +10,18 @@ NEUROSCOPE measures ligand-receptor signaling using KSG mutual information chann
 
 ## Results
 
-Benchmarked across four independent datasets spanning three diseases and two tissue types:
+Benchmarked across four independent datasets spanning three diseases and two tissue types. The headline finding is that KSG channel capacity recovers many significant ligand-receptor pairs that the standard tools miss:
 
-| Dataset | Donors | Significant pairs | Not detected by LIANA | Not detected by CellChat | AUROC |
-|---------|--------|-------------------|-----------------------|--------------------------|-------|
-| Kang 2018, IFN-beta PBMC | 16 | 5 / 9 | 3/5 (60%) | 3/5 (60%) | **1.000** vs 0.506 |
-| COVID Blood Atlas, PBMC | 124 | 49 / 127 | 32/49 (65%) | 20/49 (41%) | **1.000** vs 0.506 |
-| Perez 2022, SLE PBMC | 149 | 33 / 40 | 19/33 (58%) | 19/33 (58%) | **1.000** vs 0.506 |
-| Smillie 2019, UC colon | 18 | 17 / 34 | 12/17 (71%) | 12/17 (70%) | **1.000** vs 0.506 |
+| Dataset | Donors | Significant pairs | Not detected by LIANA | Not detected by CellChat |
+|---------|--------|-------------------|-----------------------|--------------------------|
+| Kang 2018, IFN-beta PBMC | 16 | 5 / 9 | 3/5 (60%) | 3/5 (60%) |
+| COVID Blood Atlas, PBMC | 124 | 49 / 127 | 32/49 (65%) | 20/49 (41%) |
+| Perez 2022, SLE PBMC | 149 | 33 / 40 | 19/33 (58%) | 19/33 (58%) |
+| Smillie 2019, UC colon | 18 | 17 / 34 | 12/17 (71%) | 12/17 (70%) |
 
-AUROC comes from a synthetic ground-truth experiment (true-signal vs dead-receiver pairs). Co-expression scoring reaches 0.506 (chance) on all four datasets; KSG channel capacity reaches 1.000 on all four.
+These exclusivity rates are computed on the real datasets and vary by tissue and disease. For CellChat, a large fraction of the missed pairs are explained by the trimean zero-floor (see [Why channel capacity](#why-channel-capacity)).
+
+A separate synthetic sanity check (not run on these datasets) confirms the underlying principle: on simulated pairs where receptor expression is either genuinely driven by the ligand or merely co-expressed by coincidence, KSG MI separates the two (AUROC 1.000) while co-expression scoring does not (0.506). This is an illustrative single simulation, not a per-dataset benchmark result.
 
 Full results are in [`results/NEUROSCOPE_figures.pdf`](results/NEUROSCOPE_figures.pdf).
 
@@ -175,9 +177,31 @@ Key columns in `channel_rankings.csv`:
 
 ---
 
+## Limitations
+
+NEUROSCOPE estimates mutual information across donors, so it is sensitive to cohort
+size. A power analysis (`runs/power_analysis_ksg.m`) characterizes this:
+
+- At **n = 16 donors** (Kang 2018), the KSG estimator has substantial finite-sample
+  bias and bootstrap confidence intervals are wide (often spanning much of [0, 1]).
+  Channel *rankings* are still moderately reliable (median Spearman rho ~0.70 vs
+  ground truth), and the permutation-based FDR test is unaffected by point-estimate
+  bias, but individual capacity values at this n should be read as rank positions,
+  not precise effect sizes.
+- At **n >= 50 donors** (COVID Atlas n=124, Lupus n=149), bias is small and CI
+  coverage approaches nominal. These are the datasets to trust for quantitative
+  capacity values.
+
+Treat small-cohort results (n < 50) as exploratory rankings and large-cohort results
+as quantitative. The cross-tool exclusivity finding holds across both regimes.
+
+---
+
 ## Citation
 
 > Ananda A. *NEUROSCOPE: Information-Theoretic Cell-Cell Communication Analysis via KSG Channel Capacity.* 2026.
+
+Contact: arjunskandaa@yahoo.com
 
 ---
 

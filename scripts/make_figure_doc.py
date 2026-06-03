@@ -140,9 +140,10 @@ story.append(Table(sum_data,
 
 story.append(Spacer(1, 0.15 * inch))
 story.append(Paragraph(
-    "All 4 benchmarks complete as of 2026-05-27. "
-    "AUROC 1.000 vs 0.506 replicated identically across all 4 datasets. "
-    "LIANA exclusivity: 41–71% across tissue types and disease contexts.",
+    "All 4 benchmarks complete. Headline real-data finding: 58 to 71% of "
+    "NEUROSCOPE-significant pairs are not detected by LIANA, and a comparable fraction "
+    "not by CellChat, computed independently per dataset. The synthetic AUROC sanity "
+    "check (1.000 vs 0.506) is a single simulation, not a per-dataset result.",
     note_style))
 story.append(PageBreak())
 
@@ -262,7 +263,7 @@ story += stat_block([
 story.append(PageBreak())
 
 # ── Figure 3 ─────────────────────────────────────────────────────────────────
-story.append(Paragraph("Figure 3 — Synthetic Ground-Truth Benchmark (AUROC)", section_style))
+story.append(Paragraph("Figure 3: Synthetic Sanity Check (AUROC, illustrative only)", section_style))
 story.append(hr())
 
 fig3_path = r"results\kang2018\paper_figures\Fig3_benchmark_auroc.png"
@@ -470,34 +471,31 @@ story.append(Spacer(1, 0.05 * inch))
 story.append(Paragraph(
     "<b>Figure 6A.</b> Information landscape for SLE PBMC (Perez et al. 2022, CellxGene). "
     "40,395 cells from 149 donors, 11 PBMC cell types. "
-    "CXCL8 to CXCR2 is the top channel (capacity = 0.589 bits), consistent with neutrophil "
-    "chemokine dysregulation in SLE. IL-1 axis (IL1RN to IL1R2, IL1B to IL1R2) captured by "
-    "KSG but invisible to LIANA rank_aggregate. 27 / 42 tested pairs significant (FDR<0.05). "
-    "AUROC 1.000 vs 0.506 replicated identically to all prior benchmarks.",
+    "IFNL1 to IFNLR1 is the top channel (capacity = 0.691 bits), an IFN-lambda axis "
+    "prominent in SLE. The IL-1 axis (IL1RN to IL1R2, IL1B to IL1R2) is captured by "
+    "KSG but invisible to LIANA rank_aggregate. 33 / 40 tested pairs significant (FDR<0.05).",
     legend_style))
 story.append(Spacer(1, 0.1 * inch))
 story += stat_block([
     "Dataset: Perez et al. 2022 Science (GSE174188 / CellxGene)",
     "  40,395 SLE PBMC cells, 149 donors, 11 cell types",
     "  635 HVGs (0.1% min-cells filter for sparse balanced sampling)",
-    "Config: n_permutations=200, fdr_threshold=0.05, run_ml=false",
-    "Runtime: 31.9 min",
+    "Config: n_permutations=200, fdr_threshold=0.05, run_ml=true",
+    "Runtime: ~16.6 hr (with ML)",
     "",
     "Top channels (FDR<0.05, ranked by channel capacity):",
-    "  CXCL8   -> CXCR2   cap=0.589  Chemokine        In LIANA",
-    "  IL1RN   -> IL1R2   cap=0.588  Cytokine/JAK     NEUROSCOPE-only",
-    "  PPBP    -> CXCR1   cap=0.584  Chemokine        In LIANA",
-    "  NCAM1   -> FGFR1   cap=0.556  Cell adhesion    In LIANA",
+    "  IFNL1   -> IFNLR1  cap=0.691  IFN-lambda       NEUROSCOPE-only",
+    "  SCT     -> VIPR2   cap=0.630  Neuropeptide     In LIANA",
+    "  CXCL8   -> CXCR2   cap=0.619  Chemokine        In LIANA",
+    "  PPBP    -> CXCR2   cap=0.617  Chemokine        In LIANA",
+    "  CXCL8   -> CXCR1   cap=0.607  Chemokine        In LIANA",
+    "  IL1RN   -> IL1R2   cap=0.593  Cytokine/JAK     NEUROSCOPE-only",
     "  IL1B    -> IL1R2   cap=0.509  Cytokine/JAK     NEUROSCOPE-only",
     "  KLRB1   -> CLEC2D  cap=0.437  Other (NK)       NEUROSCOPE-only",
-    "  AKR1C3  -> PTGDR   cap=0.430  Prostaglandin    NEUROSCOPE-only",
-    "  IFNL1   -> IFNLR1  cap=0.409  IFN-lambda       NEUROSCOPE-only",
-    "  PDGFD   -> PDGFRB  cap=0.379  PDGF             NEUROSCOPE-only",
-    "  IL12A   -> IL12RB2 cap=0.370  IL-12 / Th1      NEUROSCOPE-only",
     "",
-    "LIANA comparison: 11/27 (41%) NEUROSCOPE-significant pairs absent from LIANA",
-    "Spectral communities: 2 (gap=0.676)",
-    "Synthetic AUROC: KSG=1.000 vs Co-expr=0.506  (identical to all 3 prior benchmarks)",
+    "LIANA comparison: 19/33 (58%) NEUROSCOPE-significant pairs absent from LIANA",
+    "CellChat comparison: 19/33 (58%) absent from CellChat",
+    "NMF programs: 3   Spectral communities: 2 (gap=0.891)   ARI: 0.008 (decoupled)",
 ])
 
 story.append(Spacer(1, 0.2 * inch))
@@ -732,30 +730,36 @@ story.append(hr())
 # ── Core claim ────────────────────────────────────────────────────────────────
 story.append(Paragraph("<b>Summary</b>", fig_title_style))
 story.append(Paragraph(
-    "NEUROSCOPE detects 58–71% more significant ligand-receptor interactions than "
-    "LIANA rank_aggregate (the current multi-method consensus), while achieving "
-    "AUROC 1.000 vs 0.506 on a synthetic ground truth. Both results replicate "
-    "identically across four independent single-cell datasets spanning three tissue "
-    "types (PBMC, colon) and four diseases (IFN-beta stimulation, COVID-19, SLE, ulcerative colitis). "
+    "On the four real benchmark datasets, NEUROSCOPE recovers significant "
+    "ligand-receptor interactions that LIANA rank_aggregate (the current multi-method "
+    "consensus) does not: 58 to 71 percent of NEUROSCOPE's FDR-significant pairs are "
+    "absent from LIANA, and a comparable fraction are absent from CellChat. These "
+    "exclusivity rates are computed on real data and vary by tissue and disease. "
     "The advantage arises because KSG mutual information operates on per-donor pseudobulk "
-    "means — preserving inter-donor correlation even when within-sample sparsity exceeds 50% — "
-    "whereas CellChat's trimean collapses to a structural zero at that sparsity threshold.",
+    "means -- preserving inter-donor correlation even when within-sample sparsity exceeds 50% -- "
+    "whereas CellChat's trimean collapses to a structural zero at that sparsity threshold. "
+    "A separate synthetic simulation (R1 below, not run on these datasets) confirms the "
+    "underlying estimator behaves as designed.",
     legend_style))
 story.append(Spacer(1, 0.15 * inch))
 
-# ── R1: Synthetic ground truth ────────────────────────────────────────────────
-story.append(Paragraph("R1 — Synthetic Ground Truth Validation", fig_title_style))
+# ── R1: Synthetic sanity check ────────────────────────────────────────────────
+story.append(Paragraph("R1 — Synthetic Sanity Check (illustrative, not a dataset benchmark)", fig_title_style))
 story.append(Paragraph(
-    "200 synthetic cells per L-R pair. True-signal pairs: ligand and receptor drawn "
-    "from correlated Gaussian (Pearson r = 0.7). Dead-receiver pairs: receptor replaced "
-    "with uncorrelated noise. AUROC measures ranking of true vs dead-receiver pairs. "
-    "Seed = 42. Replicated on all 4 benchmarks without modification.",
+    "This is a single synthetic simulation that does NOT use any of the four real "
+    "datasets. It checks that the MI estimator behaves as designed on data where the "
+    "ground truth is known by construction. 200 synthetic cells per pair, zero-inflated "
+    "lognormal expression (65% zeros). Causal pairs: receptor Y = 0.6*X + noise. "
+    "Dead-receiver pairs: X and Y both expressed but drawn independently (zero true MI). "
+    "Null pairs: receptor is flat noise. Labels come from the generative model, not from "
+    "either scoring method, so there is no circularity. Seed = 42; the simulation is "
+    "identical regardless of which dataset's pipeline runs it.",
     legend_style))
 story.append(Spacer(1, 0.08 * inch))
 
 auroc_data = [
     ["Method", "AUROC", "FP in top-k", "Dead-receiver pairs detected"],
-    ["NEUROSCOPE (KSG MI)", "1.000", "0 / 18", "None — perfect discrimination"],
+    ["NEUROSCOPE (KSG MI)", "1.000", "0 / 18", "None separated cleanly"],
     ["Co-expression score", "0.506", "18 / 18", "All — chance-level performance"],
 ]
 auroc_ts = TableStyle([
@@ -775,10 +779,13 @@ story.append(Table(auroc_data,
     colWidths=[1.8*inch, 0.9*inch, 1.1*inch, 2.6*inch], style=auroc_ts))
 story.append(Spacer(1, 0.06 * inch))
 story.append(Paragraph(
-    "AUROC 0.506 ≈ random chance (theoretical floor = 0.5). "
-    "This result is <b>identical across all 4 benchmarks</b> (Kang, COVID, Lupus, Smillie). "
-    "KSG MI correctly scores all 18 dead-receiver pairs below all 18 true pairs. "
-    "Co-expression scores all 18 dead-receiver pairs in the top-k.",
+    "AUROC 0.506 is approximately random chance (floor = 0.5). Because dead-receiver "
+    "pairs are constructed to carry zero mutual information, a correctly implemented MI "
+    "estimator is expected to separate them near-perfectly at this sample size and "
+    "coupling strength -- this is a sanity check that the estimator works and that "
+    "co-expression cannot make the distinction, not a measure of real-world ranking "
+    "accuracy on noisy biological data. The real-data evidence is the cross-tool "
+    "exclusivity analysis (R2 and R3).",
     note_style))
 story.append(Spacer(1, 0.18 * inch))
 
@@ -802,7 +809,6 @@ master_data = [
     ["Not in LIANA", "3/5 = 60%", "32/49 = 65%", "19/33 = 58%", "12/17 = 71%"],
     ["Not in CellChat", "3/5 = 60%", "20/49 = 41%", "19/33 = 58%", "12/17 = 70%"],
     ["Not in NicheNet LR", "2/5 = 40%", "21/49 = 43%", "6/33 = 18%", "6/17 = 35%"],
-    ["AUROC (KSG / co-expr)", "1.000 / 0.506", "1.000 / 0.506", "1.000 / 0.506", "1.000 / 0.506"],
     ["Comm ARI vs transcr.", "n/a", "0.082 (Decoupled)", "0.008 (Decoupled)", "0.031 (Decoupled)"],
     ["NMF programs", "7", "3", "3", "3"],
     ["Spectral gap", "0.733", "0.812", "0.891", "0.673"],
@@ -817,9 +823,9 @@ master_ts = TableStyle([
     ("BACKGROUND",  (0,1), (0,-1),  colors.HexColor("#e8eef4")),
     ("FONTNAME",    (0,1), (0,-1),  "Helvetica-Bold"),
     ("ROWBACKGROUNDS", (1,1), (-1,-1), [colors.white, colors.HexColor("#f7f9fb")]),
-    # Highlight AUROC row
-    ("BACKGROUND",  (1,10), (-1,10), colors.HexColor("#d4edda")),
-    ("FONTNAME",    (1,10), (-1,10), "Helvetica-Bold"),
+    # Highlight the two cross-tool exclusivity rows (the headline real-data finding)
+    ("BACKGROUND",  (1,6), (-1,7), colors.HexColor("#d4edda")),
+    ("FONTNAME",    (1,6), (-1,7), "Helvetica-Bold"),
     ("FONTSIZE",    (0,0), (-1,-1), 7.5),
     ("GRID",        (0,0), (-1,-1), 0.4, colors.HexColor("#cccccc")),
     ("VALIGN",      (0,0), (-1,-1), "MIDDLE"),
@@ -833,9 +839,9 @@ story.append(Table(master_data,
     style=master_ts))
 story.append(Spacer(1, 0.06 * inch))
 story.append(Paragraph(
-    "Green row = AUROC, the primary validation metric. "
-    "All 4 benchmarks show identical AUROC = 1.000 (KSG) vs 0.506 (co-expression). "
-    "LIANA = rank_aggregate excluding COVID Atlas where CellPhoneDB fallback was used. "
+    "Green rows = the headline real-data finding: the fraction of NEUROSCOPE-significant "
+    "pairs that LIANA and CellChat miss, computed independently on each dataset. "
+    "LIANA = rank_aggregate except COVID Atlas where the CellPhoneDB fallback was used. "
     "Communication ARI: Adjusted Rand Index between communication state clusters and "
     "transcriptomic cell-type labels. ARI < 0.1 = Decoupled.",
     note_style))
@@ -1240,9 +1246,9 @@ for title, body in methods:
 story.append(Spacer(1, 0.2 * inch))
 story.append(hr())
 story.append(Paragraph(
-    "NEUROSCOPE  ·  Generated 2026-05-30  ·  "
-    "All 4 benchmarks complete. AUROC 1.000 vs 0.506 replicated across all datasets. "
-    "41-71% NEUROSCOPE-exclusive pairs across PBMC and colon tissue. NicheNet comparison pending.",
+    "NEUROSCOPE  ·  Information-Theoretic Cell-Cell Communication Analysis  ·  "
+    "All 4 benchmarks complete. 58-71% of NEUROSCOPE-significant pairs not detected by "
+    "LIANA, computed per dataset across PBMC and colon tissue.",
     caption_style))
 
 # ── Build ─────────────────────────────────────────────────────────────────────

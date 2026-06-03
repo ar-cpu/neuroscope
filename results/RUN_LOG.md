@@ -1,4 +1,4 @@
-# NEUROSCOPE v5.2 — Run Log
+# NEUROSCOPE Run Log
 
 Generated: 2026-05-22
 
@@ -29,7 +29,7 @@ Generated: 2026-05-22
 | CLU → TYROBP | 0.7548 | [0.027, 0.965] | 0.0117 | HighCapacity_Selective |
 | CD47 → TYROBP | 0.6540 | [0.000, 1.000] | 0.0281 | HighCapacity_Selective |
 
-**Synthetic AUROC validation (seed=42, n=200 cells/pair):**
+**Synthetic sanity check (shared simulation, seed=42, n=200 cells/pair; NOT computed on this dataset):**
 - KSG MI: AUROC = **1.000**, Precision@20 = 1.000, Dead-receiver FP in top-k = 0
 - Co-expression: AUROC = **0.506**, Precision@20 = 0.100, Dead-receiver FP in top-k = 18
 
@@ -96,7 +96,7 @@ Generated: 2026-05-22
 | HLA-E → VSIR | 0.5103 | [0.000, 1.000] | 0.0089 | Immune checkpoint |
 | CD320 → JAML | 0.4386 | [0.000, 0.793] | 0.0034 | Cell adhesion |
 
-**Synthetic AUROC validation (seed=42, n=200 cells/pair):**
+**Synthetic sanity check (shared simulation, seed=42, n=200 cells/pair; NOT computed on this dataset):**
 - KSG MI: AUROC = **1.000**, Dead-receiver FP in top-k = 0
 - Co-expression: AUROC = **0.506**, Dead-receiver FP in top-k = 18
 
@@ -182,7 +182,7 @@ Generated: 2026-05-22
 | CXCL5 → CXCR1 | 0.573 | 0.005 | Chemokine | YES |
 | NCAM1 → FGFR1 | 0.569 | 0.003 | Cell adhesion | YES |
 
-**Synthetic AUROC validation (seed=42, n=200 cells/pair):**
+**Synthetic sanity check (shared simulation, seed=42, n=200 cells/pair; NOT computed on this dataset):**
 - KSG MI: AUROC = **1.000**, Dead-receiver FP in top-k = 0
 - Co-expression: AUROC = **0.506**, Dead-receiver FP in top-k = 18
 
@@ -264,7 +264,7 @@ Generated: 2026-05-22
 | KLRB1 → CLEC2D | 0.3823 | [0.000, 0.936] | 0.0000 | Other |
 | ICAM1 → ITGB2 | 0.3551 | [0.000, 0.904] | 0.0000 | Cell adhesion |
 
-**Synthetic AUROC validation (seed=42, n=200 cells/pair):**
+**Synthetic sanity check (shared simulation, seed=42, n=200 cells/pair; NOT computed on this dataset):**
 - KSG MI: AUROC = **1.000**, Dead-receiver FP in top-k = 0
 - Co-expression: AUROC = **0.506**, Dead-receiver FP in top-k = 18
 
@@ -348,10 +348,11 @@ Expected results: partial overlap (~30-50%) with NEUROSCOPE significant pairs. I
 
 **Cross-benchmark LIANA exclusivity (58–71%):** KSG MI consistently detects
 statistically correlated L-R pairs invisible to rank_aggregate across
-PBMC (IFN-β, COVID, SLE) and colon tissue (ulcerative colitis, UC). AUROC 1.000 vs 0.506 is
-identical across all 4 benchmarks. NicheNet LR network coverage: 18–43% of
-NEUROSCOPE-sig pairs absent from NicheNet's prior network, indicating novel or
-recently characterized interactions beyond current prior knowledge.
+PBMC (IFN-β, COVID, SLE) and colon tissue (ulcerative colitis, UC). These exclusivity
+rates are computed independently per dataset and vary by tissue and disease.
+NicheNet LR network coverage: 18–43% of NEUROSCOPE-sig pairs absent from NicheNet's
+prior network. The synthetic AUROC sanity check (1.000 vs 0.506) is a single simulation
+that does not use the real datasets; it is not a per-dataset result (see notes below).
 
 ---
 
@@ -445,5 +446,5 @@ results/
 ├── prep_lupus_new.log                    — prep output (40,395 cells)
 ├── liana_comparison.log
 ├── liana_lupus.log                       — LIANA run output for lupus
-└── NEUROSCOPE_v52_figures.pdf            — full figure document
+└── NEUROSCOPE_figures.pdf            — full figure document
 ```

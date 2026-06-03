@@ -236,16 +236,35 @@ CellPhoneDB found 112 unique L-R pairs significant. NEUROSCOPE found 49.
 
 ---
 
-## Synthetic AUROC validation
+## Synthetic sanity check (illustrative, not a dataset benchmark)
 
-To directly test whether KSG MI identifies true-transmitting interactions while co-expression does not, we simulated ground-truth communicating cell pairs (ligand expression causally determines receptor-response expression) and dead-receiver controls.
+**Important framing:** this is a single synthetic simulation that does NOT use any of
+the four real datasets. It illustrates the conceptual difference between mutual
+information and co-expression on data where the ground truth is known by construction.
+It is run once (`simulate_communication_ground_truth.m`, seed 42) and is identical
+regardless of which dataset's pipeline invokes it. Do not read it as a per-dataset
+result that replicates four times.
+
+The simulation builds three kinds of L-R pairs:
+- **causal** (label 1): receptor response is generated as `Y = 0.6*X + noise`
+- **dead-receiver** (label 0): X and Y both expressed but drawn independently
+- **null** (label 0): receptor is flat noise
+
+Labels come from the generative model, not from either scoring method, so there is no
+circularity. Both methods are graded against the same external labels.
 
 | Method | AUROC |
 |--------|-------|
-| KSG MI (NEUROSCOPE) | **1.000** |
+| KSG MI (NEUROSCOPE) | 1.000 |
 | Co-expression score (geometric mean) | 0.506 |
 
-A random classifier scores 0.5. The KSG MI estimator achieves perfect discrimination on the synthetic ground truth; co-expression scoring is indistinguishable from random. (Previous run with uncorrected H estimator: AUROC=0.975; the corrected H gives larger mi_norm for true-transmitting pairs, improving discrimination.)
+**Interpretation and caveat:** dead-receiver pairs are constructed to have zero mutual
+information, so a working MI estimator is expected to separate them from causal pairs
+near-perfectly at n=200 cells/pair with beta=0.6 coupling. This is a sanity check that
+the estimator behaves as designed and that co-expression cannot make this distinction
+(it scores at chance, 0.506). It is NOT evidence of real-world ranking accuracy on
+noisy biological data; the real-data evidence is the cross-tool exclusivity analysis
+above (which uses the actual datasets and varies by tissue/disease).
 
 ---
 
@@ -270,7 +289,7 @@ A random classifier scores 0.5. The KSG MI estimator achieves perfect discrimina
 
 †*Capacity-only (internal NEUROSCOPE): significant by KSG MI permutation test but NOT by Wilcoxon expression strength. In Kang 2018 the IFN-inducible genes have sparse per-cell expression so both metrics catch them, but the MI signal is driven by inter-donor variance — CellChat zeroes them out. In COVID Atlas, capacity and strength are highly correlated (r=0.956), so 0 internal capacity-only pairs, but 20/49 pairs are still missed by CellChat (those have non-negligible expression that Wilcoxon detects, but per-cell sparsity >50% that zeros CellChat's trimean).*
 
-Both datasets produce KSG AUROC = 1.000 vs co-expression AUROC = 0.506 on synthetic ground truth (same estimator, same validation logic). The CellChat zero-floor finding replicates in both datasets: Kang 2018 (5/5 missed, p=0.0079), COVID Atlas (20/49 missed, p=0.0008, OR=0.060). The COVID Atlas result is stronger statistically (p=0.0008 vs p=0.0079) and uses the more powerful n=124 design. Note: NEUROSCOPE internally finds 0 "capacity-only" pairs in COVID Atlas (pairs significant by MI but not by Wilcoxon expression strength) because the two metrics are highly correlated (r=0.956); the 20 pairs "missed by CellChat" are pairs significant by both KSG MI AND expression strength — they are missed by CellChat specifically because of the trimean zero-floor, not because of low expression.
+The synthetic sanity check (AUROC 1.000 vs 0.506) is a single simulation that does not use either real dataset; it is not a per-dataset result and should not be read as cross-dataset replication (see the synthetic sanity check section above). The genuine cross-dataset finding is the CellChat zero-floor, which replicates on the real data: Kang 2018 (5/5 missed, p=0.0079), COVID Atlas (20/49 missed, p=0.0008, OR=0.060). The COVID Atlas result is stronger statistically (p=0.0008 vs p=0.0079) and uses the more powerful n=124 design. Note: NEUROSCOPE internally finds 0 "capacity-only" pairs in COVID Atlas (pairs significant by MI but not by Wilcoxon expression strength) because the two metrics are highly correlated (r=0.956); the 20 pairs "missed by CellChat" are pairs significant by both KSG MI AND expression strength — they are missed by CellChat specifically because of the trimean zero-floor, not because of low expression.
 
 ---
 

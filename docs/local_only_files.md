@@ -69,7 +69,7 @@ regenerated automatically on the next run. Deleted to keep results/ clean.
 | `results/validation_ground_truth.png` | Synthetic benchmark figure |
 
 Also gitignored per-dataset run artifacts (regenerated on each run):
-- `results/**/paper_figures/` — per-figure PNGs/PDFs (embedded in NEUROSCOPE_v52_figures.pdf)
+- `results/**/paper_figures/` — per-figure PNGs/PDFs (embedded in NEUROSCOPE_figures.pdf)
 - `results/**/poster_figures/` — poster-format figures
 - `results/**/ml_models/` — trained model files
 - `results/**/networks/` — network export files
