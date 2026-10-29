@@ -201,7 +201,7 @@ as quantitative. The cross-tool exclusivity finding holds across both regimes.
 
 > Ananda A. *NEUROSCOPE: Information-Theoretic Cell-Cell Communication Analysis via KSG Channel Capacity.* 2026.
 
-Contact: arjunskandaa@yahoo.com
+Contact: arjunskanda@yahoo.com
 
 ---
 
